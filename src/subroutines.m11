@@ -41,14 +41,12 @@ start:
 
 
 print1:
-    mov #tts, r1
-    mov #ttd, r2
     mov (r5)+, r0       ; address of the string immediately follows old pc, which is now in r5
 1$:
-    movb (r0)+, (r2)    ; send the next character
+    movb (r0)+, @#ttd   ; send the next character
     beq 3$              ; check if we found a zero byte
 2$:
-    tstb (r1)           ; wait until character transmitted
+    tstb @#tts          ; wait until character transmitted
     bpl 2$
     br 1$
 3$:
@@ -57,14 +55,12 @@ print1:
 
 
 print2:
-    mov #tts, r1
-    mov #ttd, r2
     mov 2(sp), r0       ; argument is one deep in the stack (return address is on top)
 1$:
-    movb (r0)+, (r2)    ; send the next character
+    movb (r0)+, @#ttd   ; send the next character
     beq 3$              ; check if we found a zero byte
 2$:
-    tstb (r1)           ; wait until character transmitted
+    tstb @#tts          ; wait until character transmitted
     bpl 2$
     br 1$
 3$:
