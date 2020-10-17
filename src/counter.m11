@@ -2,13 +2,13 @@
 
 .asect
 
-.=1000
+.=1000              ; start address = 1000 (octal)
 start:
-	clr r0
+    clr r0          ; r0 = 0
 loop:
-	inc r0
-	reset
-	br loop	
+    inc r0          ; r0++
+    reset           ; sleep 10ms and display r0 on the console lights
+    br loop         ; unconditional branch
 
 .end
 

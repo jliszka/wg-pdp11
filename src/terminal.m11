@@ -2,36 +2,36 @@
 
 .asect
 
-kbv = 60				; keyboard (TTI) interrupt vector
-kbs = 177560			; keyboard status register
-kbd = 177562			; keyboard data buffer
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
 
 ttv = 64                ; terminal (TTO) interrupt vector
-tts = 177564			; terminal status register
-ttd = 177566			; terminal data buffer
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
 
 stack = 160000
 
 .=1000
 start:
-	mov #stack, sp		; initialize the stack pointer 
-						; (needed because interrupt handlers use the stack)
-	mov #input, @#kbv	; install keyboard ISR
-	mov #100, @#kbs		; enable keyboard interrupts
+    mov #stack, sp      ; initialize the stack pointer 
+                        ; (needed because interrupt handlers use the stack)
+    mov #input, @#kbv   ; install keyboard ISR
+    mov #100, @#kbs     ; enable keyboard interrupts
 
 1$:
-	wait
-	br 1$
+    wait
+    br 1$
 
 input:
-	mov #kbs, r0
-	mov 2(r0), r1       ; read character	
+    mov #kbs, r0
+    mov 2(r0), r1       ; read character
 
-	mov #tts, r0
-	movb r1, 2(r0)		; transmit data
-						; technically, we should wait until the device is ready
-						; to accept another character, but in practice, people
-						; don't type that fast :P
-	rti
+    mov #tts, r0
+    movb r1, 2(r0)      ; transmit data
+                        ; technically, we should wait until the device is ready
+                        ; to accept another character, but in practice, people
+                        ; don't type that fast :P
+    rti
 
 .end

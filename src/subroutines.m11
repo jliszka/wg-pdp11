@@ -2,13 +2,13 @@
 
 .asect
 
-kbv = 60				; keyboard (TTI) interrupt vector
-kbs = 177560			; keyboard status register
-kbd = 177562			; keyboard data buffer
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
 
 ttv = 64                ; terminal (TTO) interrupt vector
-tts = 177564			; terminal status register
-ttd = 177566			; terminal data buffer
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
 
 CR = 15
 LF = 12
@@ -16,69 +16,69 @@ stack = 160000
 
 .=1000
 start:
-	mov #stack, sp
+    mov #stack, sp
 
-	;;; subroutine calls using linkage pointer
+    ;;; subroutine calls using linkage pointer
 
-	jsr r5, print1		; r5 is the linkage pointer, it gets the value of the pc before the call
-	.word msg1			; (i.e., it points to this line <---)
-	
-	jsr r5, print1
-	.word msg3
-	
-	;;; subroutine calls using the stack
+    jsr r5, print1      ; r5 is the linkage pointer, it gets the value of the pc before the call
+    .word msg1          ; (i.e., it points to this line <---)
 
-	mov #msg2, -(sp)	; push the address of the argument onto the stack
-	jsr pc, print2
-	add #2, sp			; clean up the stack
+    jsr r5, print1
+    .word msg3
 
-	mov #msg3, -(sp)	; push the address of the argument onto the stack
-	jsr pc, print2
-	add #2, sp			; clean up the stack
+    ;;; subroutine calls using the stack
 
-	halt
+    mov #msg2, -(sp)    ; push the address of the argument onto the stack
+    jsr pc, print2
+    add #2, sp          ; clean up the stack
+
+    mov #msg3, -(sp)    ; push the address of the argument onto the stack
+    jsr pc, print2
+    add #2, sp          ; clean up the stack
+
+    halt
 
 
 
 print1:
-	mov #tts, r1
-	mov #ttd, r2
-	mov (r5)+, r0      	; address of the string immediately follows old pc, which is now in r5
+    mov #tts, r1
+    mov #ttd, r2
+    mov (r5)+, r0       ; address of the string immediately follows old pc, which is now in r5
 1$:
-	movb (r0)+, (r2)	; send the next character
-	beq 3$				; check if we found a zero byte
+    movb (r0)+, (r2)    ; send the next character
+    beq 3$              ; check if we found a zero byte
 2$:
-	tstb (r1)			; wait until character transmitted
-	bpl 2$
-	br 1$
+    tstb (r1)           ; wait until character transmitted
+    bpl 2$
+    br 1$
 3$:
-	rts r5				; return
+    rts r5              ; return
 
 
 
 print2:
-	mov #tts, r1
-	mov #ttd, r2
-	mov 2(sp), r0      	; argument is one deep in the stack (return address is on top)
+    mov #tts, r1
+    mov #ttd, r2
+    mov 2(sp), r0       ; argument is one deep in the stack (return address is on top)
 1$:
-	movb (r0)+, (r2)	; send the next character
-	beq 3$				; check if we found a zero byte
+    movb (r0)+, (r2)    ; send the next character
+    beq 3$              ; check if we found a zero byte
 2$:
-	tstb (r1)			; wait until character transmitted
-	bpl 2$
-	br 1$
+    tstb (r1)           ; wait until character transmitted
+    bpl 2$
+    br 1$
 3$:
-	rts pc				; return
+    rts pc              ; return
 
 
 
 msg1:
-	.asciz /My argument was passed as an inline literal!/<CR><LF>
+    .asciz /My argument was passed as an inline literal!/<CR><LF>
 
 msg2:
-	.asciz /My argument was passed on the stack!/<CR><LF>
+    .asciz /My argument was passed on the stack!/<CR><LF>
 
 msg3:
-	.asciz /Mine too!/<CR><LF>
+    .asciz /Mine too!/<CR><LF>
 
 .end

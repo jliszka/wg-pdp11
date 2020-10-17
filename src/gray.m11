@@ -4,23 +4,23 @@
 .asect
 .=1000
 start:
-	clr r0
-	clr r1
+    clr r0
+    clr r1
 loop:
-	inc r1			; some nonsense to increment the gray code counter...
-	mov r1, r2
-	mov r1, r3
-	dec r3
-	xor r2, r3
-	inc r3
-	asr r3
-	xor r3, r0
+    inc r1          ; some nonsense to increment the gray code counter...
+    mov r1, r2
+    mov r1, r3
+    dec r3
+    xor r2, r3
+    inc r3
+    asr r3
+    xor r3, r0
 
-	mov #40, r4		; initialize the wait loop counter
-1$:					; a local label! only good between regular labels
-	reset			; sleep 10ms and display r0 on the console lights
-	sob r4, 1$		; Subtract One and Branch (if not zero)
+    mov #40, r4     ; initialize the wait loop counter
+1$:                 ; a local label! only good between regular labels
+    reset           ; sleep 10ms and display r0 on the console lights
+    sob r4, 1$      ; Subtract One and Branch (if not zero)
 
-	br loop
+    br loop
 
 .end
