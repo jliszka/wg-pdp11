@@ -1,0 +1,36 @@
+.title Hello, world!
+
+.asect
+
+kbv = 60				; keyboard (TTI) interrupt vector
+kbs = 177560			; keyboard status register
+kbd = 177562			; keyboard data buffer
+
+ttv = 64                ; terminal (TTO) interrupt vector
+tts = 177564			; terminal status register
+ttd = 177566			; terminal data buffer
+
+CR = 15
+LF = 12
+
+.=1000
+start:
+	mov #tts, r1
+	mov #ttd, r2
+	mov #msg, r0      	; address of the string
+nextchar:
+	movb (r0)+, (r2)	; send the next character
+	beq done			; check if we found a zero byte
+wait:
+	tstb (r1)			; wait until character transmitted
+	bpl wait 			; this essentially tests bit 7: when set, device is ready for next char
+	br nextchar
+
+done:
+	halt
+
+
+msg:
+	.asciz /Hello, world!/<CR><LF>
+
+.end

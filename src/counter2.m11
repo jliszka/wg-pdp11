@@ -1,0 +1,21 @@
+.title Binary counter (slow)
+
+.asect
+
+.=1000
+start:
+	clr r0			; r0 = 0
+loop:
+	inc r0			; increment r0
+
+	mov #100, r1	; initialize the wait loop counter
+wait:
+	reset			; sleep 10ms and display r0 on the console lights
+	dec r1			; decrement wait loop counter
+	bne wait		; keep waiting if r1 is not 0
+
+	br loop			; loop back around
+
+.end
+
+

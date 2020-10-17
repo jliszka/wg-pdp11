@@ -1,0 +1,11 @@
+set cpu 11/70
+set cpu 4M
+set clk 50hz
+set cpu idle
+
+set realcons host=localhost
+set realcons panel=11/70
+set realcons interval=1
+set realcons connect
+
+set console notelnet

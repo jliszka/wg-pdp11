@@ -1,0 +1,19 @@
+.title Gauss
+
+swr = 177570
+
+.asect
+
+.=1000
+start:
+	mov @#swr, r1   ; read a value from the switch register
+	clr r0
+
+loop:
+	add r1, r0		; add it to the accumulator (r0)
+	dec r1			; decrement it
+	bne loop		; loop until 0
+
+disp:
+	halt			; this will halt execution and show the value of r0 on the console lights
+	br start		; press CONT to go around again
