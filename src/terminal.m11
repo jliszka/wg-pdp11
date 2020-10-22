@@ -24,7 +24,7 @@ start:
     br 1$
 
 input:
-    mov @#kbd, r1       ; read character
+    movb @#kbd, r1      ; read character
     movb r1, @#ttd      ; transmit data
                         ; technically, we should wait until the device is ready
                         ; to accept another character, but in practice, people

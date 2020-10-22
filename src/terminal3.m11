@@ -1,0 +1,96 @@
+.title Interactive input
+
+.asect
+
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
+
+ttv = 64                ; terminal (TTO) interrupt vector
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+
+CR = 15
+LF = 12
+
+stack = 160000
+
+.=1000
+start:
+    mov #stack, sp      ; initialize the stack pointer
+    mov #input, @#kbv   ; install keyboard ISR
+    mov #100, @#kbs     ; enable keyboard interrupts
+
+    mov #msg1, -(sp)    ; "Hello, what is your name?"
+    jsr pc, print
+    add #2, sp
+
+    mov #buf, r2        ; destination buffer for keyboard input
+    clr r3              ; r3 will indicate when the user pressed enter
+1$:
+    wait
+    tst r3
+    beq 1$
+
+    mov #msg2, -(sp)    ; "Hi, "
+    jsr pc, print
+    add #2, sp
+
+    mov #buf, -(sp)     ; echo the input
+    jsr pc, print
+    add #2, sp
+
+    mov #msg3, -(sp)    ; ", nice to meet you!"
+    jsr pc, print
+    add #2, sp
+
+    halt
+
+input:
+    movb @#kbd, r1      ; read character
+    cmpb r1, #CR        ; if user pressed enter, don't don't copy to buffer
+    bne 1$
+    mov #crlf, -(sp)    ; instead, print CRLF
+    jsr pc, print
+    add #2, sp
+    mov #1, r3          ; indicate that we're done reading input
+    rti
+1$:
+    movb r1, (r2)+      ; copy it into the buffer
+    movb r1, @#ttd      ; transmit data
+                        ; technically, we should wait until the device is ready
+                        ; to accept another character, but in practice, people
+                        ; don't type that fast :P
+    rti
+
+
+print:
+    mov 2(sp), r0       ; argument is one deep in the stack (return address is on top)
+1$:
+    movb (r0)+, @#ttd   ; send the next character
+    beq 3$              ; check if we found a zero byte
+2$:
+    tstb @#tts          ; wait until character transmitted
+    bpl 2$
+    br 1$
+3$:
+    rts pc              ; return
+
+
+buf:
+.=.+100
+
+crlf:
+    .asciz <CR><LF>
+
+msg1:
+    .asciz /Hello, what is your name?/<CR><LF>
+
+msg2:
+    .asciz /Hi, /
+
+msg3:
+    .asciz /, nice to meet you!/<CR><LF>
+
+
+.end

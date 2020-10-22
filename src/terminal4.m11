@@ -1,0 +1,94 @@
+.title Interactive input
+
+.asect
+
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
+
+ttv = 64                ; terminal (TTO) interrupt vector
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+
+CR = 15
+LF = 12
+
+stack = 160000
+
+.=1000
+start:
+    mov #stack, sp      ; initialize the stack pointer
+
+    jsr r5, print       ; "Hello, what is your name?"
+    .word msg1
+
+    jsr r5, input       ; read input from keyboard
+    .word buf
+
+    jsr r5, print       ; "Hi, "
+    .word msg2
+
+    jsr r5, print       ; echo the input
+    .word buf
+
+    jsr r5, print       ; ", nice to meet you!"
+    .word msg3
+
+    halt
+
+
+input:
+    mov (r5)+, r2       ; destination buffer address in r2
+1$:
+    tstb @#kbs          ; poll until input is ready
+    bpl 1$
+
+    movb @#kbd, r1      ; read character
+    cmpb r1, #CR        ; if user pressed enter, skip to the end
+    beq 2$
+
+    movb r1, (r2)+      ; copy the character into the buffer
+    movb r1, @#ttd      ; transmit data
+    br 1$               ; wait for more input
+
+2$:
+    movb #0, (r2)+      ; 0-terminate the buffer
+
+    mov r5, -(sp)       ; push r5
+    jsr r5, print       ; print CRLF
+    .word crlf
+    mov (sp)+, r5       ; pop r5
+
+    rts r5              ; return
+
+
+print:
+    mov (r5)+, r0       ; address of the string immediately follows old pc, which is now in r5
+1$:
+    movb (r0)+, @#ttd   ; send the next character
+    beq 3$              ; check if we found a zero byte
+2$:
+    tstb @#tts          ; wait until character transmitted
+    bpl 2$
+    br 1$
+3$:
+    rts r5              ; return
+
+
+buf:
+.=.+100                 ; a 64-byte buffer
+
+crlf:
+    .asciz <CR><LF>
+
+msg1:
+    .asciz /Hello, what is your name?/<CR><LF>
+
+msg2:
+    .asciz /Hi, /
+
+msg3:
+    .asciz /, nice to meet you!/<CR><LF>
+
+
+.end
