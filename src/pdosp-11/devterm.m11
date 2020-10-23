@@ -1,15 +1,16 @@
 .title Terminal device helpers
 
-.asect
+.include consts.m11h
 
-ttv = 64                ; terminal (TTO) interrupt vector
-tts = 177564            ; terminal status register
-ttd = 177566            ; terminal data buffer
+
+.asect
+.globl echo
 
 ;
 ; Echo the string to the Terminal
 ;
 ; (r5) is the return address with the string immediately following the pc
+.=2000
 echo:
     mov (r5)+, r0       ; address of the string immediately follows old pc, which is now in r5
 1$:

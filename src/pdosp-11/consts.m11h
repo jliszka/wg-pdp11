@@ -1,0 +1,15 @@
+.title Common constants
+
+.asect
+
+CR = 15
+LF = 12
+
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
+
+ttv = 64                ; terminal (TTO) interrupt vector
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+

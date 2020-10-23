@@ -1,10 +1,9 @@
 .title Boot routines
 
-.include constants.m11
-.include devkbd.m11
-.include devterm.m11
+.include consts.m11h
 
 .asect
+.globl echo
 
 stack = 160000
 
@@ -32,17 +31,15 @@ boot:
 input:
     movb @#kbd, r1      ; read character
     movb r1, @#ttd      ; transmit data
-                        ; technically, we should wait until the device is ready
-                        ; to accept another character, but in practice, people
-                        ; don't type that fast :P
+wait$:
+    tstb @#tts          ; wait until character transmitted
+    bpl wait$
 
-    cmp r1, LF
+    cmp r1, #CR          ; prompt if this is a CR
     bne 2$
 
-    ;; shell prompt
     jsr r5, echo
     .word prompt
-
 2$:
     rti
 
@@ -50,6 +47,7 @@ motd:
     .asciz /Welcome to PDOSP-11/<CR><LF>
 
 prompt:
+    .ascii <LF>
     .asciz /C:\> /
 
 .end

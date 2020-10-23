@@ -15,8 +15,8 @@ all: pdosp-11.bin
 pdosp-11.bin: $(OBJS)
 	$(OBJ2BIN) $(OBJ2BINOPTS) --outfile=$@ $^
 
-install:
+install: pdosp-11.bin
 	cp pdosp-11.bin ../../
 
 clean:
-	rm -f *.obj *.bin
+	rm -f *.obj *.bin *.lst

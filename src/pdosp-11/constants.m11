@@ -1,6 +1,0 @@
-.title Common constants
-
-.asect
-
-CR = 15
-LF = 12
