@@ -1,0 +1,55 @@
+.title Boot routines
+
+.include constants.m11
+.include devkbd.m11
+.include devterm.m11
+
+.asect
+
+stack = 160000
+
+.=1000
+boot:
+    mov #stack, sp      ; initialize the stack pointer
+                        ; (needed because interrupt handlers use the stack)
+
+    ;; XXX move this to kbd boot routine
+    mov #input, @#kbv   ; install keyboard ISR
+    mov #100, @#kbs     ; enable keyboard interrupts
+
+    ;; boot motd prompt
+    jsr r5, echo
+    .word motd
+
+    ;; shell prompt
+    jsr r5, echo
+    .word prompt
+
+1$:
+    wait                ; wait for interrupts
+    br 1$
+
+input:
+    movb @#kbd, r1      ; read character
+    movb r1, @#ttd      ; transmit data
+                        ; technically, we should wait until the device is ready
+                        ; to accept another character, but in practice, people
+                        ; don't type that fast :P
+
+    cmp r1, LF
+    bne 2$
+
+    ;; shell prompt
+    jsr r5, echo
+    .word prompt
+
+2$:
+    rti
+
+motd:
+    .asciz /Welcome to PDOSP-11/<CR><LF>
+
+prompt:
+    .asciz /C:\> /
+
+.end

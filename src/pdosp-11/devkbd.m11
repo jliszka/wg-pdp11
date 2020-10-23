@@ -1,0 +1,8 @@
+.title Keyboard device helpers
+
+.asect
+
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
+
