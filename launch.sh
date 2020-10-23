@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ -z "$1" ] ; then
+  echo "usage: need startup script"
+  exit 1
+fi
+
 # run SimH and the java panel simulation
 cd $(dirname $0)
 
