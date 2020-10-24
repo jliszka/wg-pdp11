@@ -20,6 +20,6 @@ sleep 15
 
 echo "Starting SimH ..."
 (
-  ./bin/pdp11_realcons $1
+  rlwrap bin/pdp11_realcons $1
   kill $JAVAPID
 )
