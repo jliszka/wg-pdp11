@@ -56,3 +56,33 @@ Then in a separate window:
 $ telnet localhost 9000
 ```
 
+## gcc cross compiler
+
+Reference: http://docs.cslabs.clarkson.edu/wiki/Developing_for_a_PDP-11
+
+1. Build binutils
+
+Download from http://gnu.mirrors.hoobly.com/binutils/binutils-2.35.tar.gz
+
+```o
+cd binutils-2.35
+mkdir build-pdp11-aout
+../configure --target=pdp11-aout --prefix=/usr/local
+echo "\n\nGet up and stretch\n\n" && sleep 2 && make -j8
+sudo make install
+```
+
+2. Build gcc
+
+Download from http://gnu.askapache.com/gcc/gcc-10.2.0/
+
+```
+cd gcc-10.2.0
+contrib/download_prerequisites
+mkdir build-pdp11-aout
+cd build-pdp11-aout
+../configure --target=pdp11-aout --prefix=/usr/local --enable-languages=c --disable-libstdc++-v3 --disable-libssp --disable-libgfortran --disable-libobjc
+echo "\n\nGo get a coffee or a snack.\nThis will take a while.\n\n" && sleep 2 && make -j8
+sudo make install
+```
+
