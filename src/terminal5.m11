@@ -1,0 +1,189 @@
+.title Interactive input
+
+.include macros.m11h
+
+.asect
+
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
+
+ttv = 64                ; terminal (TTO) interrupt vector
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+
+CR = 15
+LF = 12
+
+stack = 160000
+
+.=1000
+start:
+    mov #stack, sp          ; initialize the stack pointer
+    
+    mov #inbuf, @#inptr     ; set up the input and output buffer pointers
+    mov #outbuf, @#outptr
+    mov #outbuf, @#outend
+
+    mov #input, @#kbv       ; install the keyboard interrupt handler
+    bis #100, @#kbs         ; enable keyboard interrupts
+
+    mov #output, @#ttv      ; install the terminal interrupt handler
+                            ; don't enable interrupts, that's done in `flush`
+
+    jsr r5, print           ; "Hello, what is your name?"
+    .word msg1
+
+    jsr pc, flush
+
+    jsr r5, read            ; read input from keyboard into buf
+    .word buf
+
+    jsr r5, print           ; "Hi, "
+    .word msg2
+
+    jsr r5, print           ; echo the input
+    .word buf
+
+    jsr r5, print           ; ", nice to meet you!"
+    .word msg3
+
+    jsr pc, flush
+
+    halt
+
+
+;;;
+;;; Write a 0-terminated string to the output buffer
+;;;
+
+print:
+    mov (r5)+, r0           ; address of the string to print
+    mov @#outend, r1        ; end of the output buffer in r1
+1$:
+    movb (r0)+, (r1)+       ; copy the next character
+    bne 1$                  ; until we find a 0 byte
+
+    dec r1                  ; point outend at the 0 byte
+    mov r1, @#outend
+
+    rts r5
+
+
+;;;
+;;; Flush the output buffer to the terminal (blocking)
+;;;
+
+flush:
+    bis #100, @#tts         ; enable terminal interrupts. this will immediately trigger an interrupt
+    br 2$
+
+1$:
+    wait                    
+2$:
+    cmp @#outend, #outbuf   ; block until the output is all flushed
+    bne 1$
+
+    rts pc                  ; return
+
+
+;;;
+;;; Copy from the input buffer to a caller-provided buffer. Waits for a CR-terminated line before
+;;; returning.
+;;;
+
+read:
+    mov (r5)+, r0           ; destination buffer address in r0
+    br 3$
+1$:
+    wait
+3$:
+    mov @#inptr, r1
+    cmpb -1(r1), #CR        ; block until the input buffer ends with CR
+    bne 1$
+
+    mov #inbuf, r1          ; beginning of the input buffer in r1
+2$:
+    movb (r1)+, (r0)+       ; copy all the bytes
+    cmpb (r1), #CR          ; until we're _about to_ copy CR
+    bne 2$
+
+    movb #0, (r0)           ; 0-terminate the buffer
+    mov #inbuf, @#inptr     ; reset the pointer to the end of the buffer
+
+    rts r5
+
+;;;
+;;; Keyboard interrupt handler
+;;;
+
+input:
+    push r0                 ; save registers
+    push r1
+
+    movb @#kbd, r1          ; read a character from the keyboard into r1
+    movb r1, @#ttd          ; echo it to the terminal
+    mov @#inptr, r0         ; pointer to the end of the input buffer in r0
+    movb r1, (r0)           ; copy the character to the input buffer
+    inc @#inptr             ; advance the pointer
+    
+    pop r1                  ; restore registers
+    pop r0
+    rti
+
+inptr:                      ; inptr points to the end of the input buffer
+    .word inbuf
+inbuf:                      ; the input buffer
+.=.+200
+
+
+;;;
+;;; Terminal interrupt handler
+;;;
+
+output:
+    cmp @#outptr, @#outend  ; check whether the output buffer is consumed
+    beq 1$
+
+    push r0                 ; save r0
+    mov @#outptr, r0        ; address of the next character to send to the terminal
+    movb (r0)+, @#ttd       ; send it to the terminal
+    mov r0, @#outptr        ; save the advance pointer
+    pop r0                  ; restore r0
+    rti                     ; return
+
+1$:
+    cmp #outbuf, @#outptr   ; buffer was empty, nothing to do
+    beq 2$ 
+    mov #outbuf, @#outptr   ; reset outptr and outend to the begining of the buffer
+    mov #outbuf, @#outend
+    bic #100, @#tts         ; turn off interrupts
+
+2$:
+    rti
+
+outptr:                     ; outptr points to the next character to send to the terminal
+    .word outbuf
+outend:                     ; outend points to the end of the output buffer
+    .word outbuf
+outbuf:                     ; the output buffer
+.=.+200
+
+buf:
+.=.+200
+
+crlf:
+    .asciz <CR><LF>
+
+msg1:
+    .asciz /Hello, what is your name?/<CR><LF>
+
+msg2:
+    .ascii <CR><LF>
+    .asciz /Hi, /
+
+msg3:
+    .asciz /, nice to meet you!/<CR><LF>
+
+
+.end

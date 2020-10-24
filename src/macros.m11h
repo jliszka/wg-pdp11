@@ -1,0 +1,8 @@
+
+.macro push r
+mov r, -(sp)
+.endm
+
+.macro pop r
+mov (sp)+, r
+.endm
