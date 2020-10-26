@@ -108,7 +108,7 @@ read:
     cmpb (r1), #CR          ; until we're _about to_ copy CR
     bne 2$
 
-    movb #0, (r0)           ; 0-terminate the buffer
+    clr (r0)                ; 0-terminate the buffer
     mov #inbuf, @#inptr     ; reset the pointer to the end of the buffer
 
     rts r5
@@ -124,8 +124,8 @@ input:
     movb @#kbd, r1          ; read a character from the keyboard into r1
     movb r1, @#ttd          ; echo it to the terminal
     mov @#inptr, r0         ; pointer to the end of the input buffer in r0
-    movb r1, (r0)           ; copy the character to the input buffer
-    inc @#inptr             ; advance the pointer
+    movb r1, (r0)+          ; copy the character to the input buffer
+    mov r0, @#inptr         ; save the advanced pointer
     
     pop r1                  ; restore registers
     pop r0
