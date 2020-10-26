@@ -29,9 +29,8 @@ void writechr(char c)
 
 void writestr(char *s)
 {
-    char *c = s;
-    while (*c != 0)
+    while (*s != 0)
     {
-        writechr(*c++);
+        writechr(*s++);
     }
 }
