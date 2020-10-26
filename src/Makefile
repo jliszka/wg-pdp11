@@ -5,9 +5,9 @@ OBJ2BINOPTS=--binary --rt11
 
 GCC=pdp11-aout-gcc
 # -nostdlib not to try linking with any system libraries.
-# -m10 limit the assembly instructions it generates to those a PDP 11/10 understands.
 # -N put the data section immediately after the code section and not on its own page.
-GCCOPTS=-nostdlib -m10 -N -fno-inline
+# -fno-inline suppresses inlining functions to make it easier to read assembly.
+GCCOPTS=-nostdlib -N -fno-inline
 AOUT2LDA=../tools/aout2lda.py
 
 %.obj: %.m11
@@ -16,13 +16,9 @@ AOUT2LDA=../tools/aout2lda.py
 %.bin: %.obj
 	$(OBJ2BIN) $(OBJ2BINOPTS) --outfile=$@ $^
 
-# Generate assembly from a .c file
+# Generate assembly from a .c file using DEC syntax
 %.s: %.c
-	$(GCC) $(GCCOPTS) -S -o $@ $<
-
-# Generate assembly from a .c file
-%.o: %.c
-	$(GCC) $(GCCOPTS) -g -o $@ $<
+	$(GCC) $(GCCOPTS) -mdec-asm -S -o $@ $<
 
 # Compile and link a c file into a.out format
 %.aout: %.c

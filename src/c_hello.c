@@ -1,20 +1,21 @@
 
 #include "libio.h"
 
-void hello()
+void crlf()
 {
     writechr(CR);
     writechr(LF);
-    writechr(CR);
-    writechr(LF);
+}
+
+void hello()
+{
+    crlf();
+    crlf();
     writestr("hello");
-    writechr(CR);
-    writechr(LF);
+    crlf();
     writestr("w0rld");
-    writechr(CR);
-    writechr(LF);
-    writechr(CR);
-    writechr(LF);
+    crlf();
+    crlf();
 }
 
 void echo()
