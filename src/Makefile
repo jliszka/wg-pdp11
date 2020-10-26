@@ -26,7 +26,7 @@ AOUT2LDA=../tools/aout2lda.py
 
 # Compile and link a c file into a.out format
 %.aout: %.c
-	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ crt0.s $<
+	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ crt0.s $(CLIBS) $<
 
 # Convert from a.out format into the tape loader format
 %.bin: %.aout
@@ -35,7 +35,9 @@ AOUT2LDA=../tools/aout2lda.py
 SRCS=$(wildcard *.m11)
 BINS=$(SRCS:.m11=.bin)
 
-CSRCS=$(wildcard *.c)
+CLIBS=$(wildcard lib*.c)
+CSRCS=$(filter-out $(CLIBS), $(wildcard *.c))
+
 CBINS=$(CSRCS:.c=.bin)
 
 all: $(BINS)
