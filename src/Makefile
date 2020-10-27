@@ -3,7 +3,10 @@ M11=../bin/macro11
 OBJ2BIN=../bin/obj2bin
 OBJ2BINOPTS=--binary --rt11
 
+# Uncomment if you installed gcc locally
+#GCC=../local/bin/pdp11-aout-gcc
 GCC=pdp11-aout-gcc
+
 # -nostdlib not to try linking with any system libraries.
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
@@ -20,13 +23,16 @@ AOUT2LDA=../tools/aout2lda.py
 %.s: %.c
 	$(GCC) $(GCCOPTS) -mdec-asm -S -o $@ $<
 
+%.o: %.c
+	$(GCC) $(GCCOPTS) -c $<
+
 # Compile and link a c file into a.out format
-%.aout: %.c
-	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ crt0.s $(CLIBS) $<
+%.aout: %.o
+	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ crt0.s $^
 
 # Convert from a.out format into the tape loader format
 %.bin: %.aout
-	$(AOUT2LDA) --aout $< --lda $(patsubst %.aout,%.bin,$<) --data-align 2 --text 0x200 --vector0
+	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x200 --vector0
 
 SRCS=$(wildcard *.m11)
 BINS=$(SRCS:.m11=.bin)
@@ -38,6 +44,10 @@ CBINS=$(CSRCS:.c=.bin)
 
 all: $(BINS)
 cbins: $(CBINS)
+
+c_hello.aout: libio.o
+
+c_hello_isr.aout: isr.s libasio.o
 
 install:
 	cp *.bin ../
