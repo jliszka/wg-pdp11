@@ -1,0 +1,36 @@
+.title Print the contents of the paper tape reader to the terminal
+
+; Before running this, create a text file with any contents you like,
+; and attach it to the ptr device like so:
+; sim> attach ptr foo.txt
+
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+
+pts = 177550            ; paper tape reader status word
+ptd = 177552            ; paper tape reader data buffer
+
+.asect
+
+.=1000
+start:
+    bis #1, @#pts       ; enable the device (ask for a character)
+1$:
+    tst @#pts           ; check bit 15 to see if there's an error (signals end of input)
+    bmi 3$              ; branch if MInus (high bit is 1)
+    tstb @#pts          ; check bit 7 to see if a character is ready
+    bpl 1$              ; branch if PLus (high bit is 0)
+
+    movb @#ptd, @#ttd   ; echo the character to the terminal
+    beq 3$              ; if we found a 0 byte, we're done
+
+2$:
+    tstb @#tts          ; wait for the terminal to transmit the character
+    bpl 2$
+
+    br start            ; loop back around to read the next character
+
+3$:
+    halt
+
+.end
