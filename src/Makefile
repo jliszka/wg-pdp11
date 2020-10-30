@@ -3,14 +3,12 @@ M11=../bin/macro11
 OBJ2BIN=../bin/obj2bin
 OBJ2BINOPTS=--binary --rt11
 
-# Uncomment if you installed gcc locally
-#GCC=../local/bin/pdp11-aout-gcc
 GCC=pdp11-aout-gcc
 
 # -nostdlib not to try linking with any system libraries.
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
-GCCOPTS=-nostdlib -N -fno-inline
+GCCOPTS=-nostdlib -N -fno-inline -Os
 AOUT2LDA=../tools/aout2lda.py
 
 %.obj: %.m11
@@ -48,6 +46,8 @@ cbins: $(CBINS)
 c_hello.aout: libio.o
 
 c_hello_isr.aout: isr.s libasio.o
+
+exec.aout: isr.s libasio.o stdlib.o
 
 install:
 	cp *.bin ../

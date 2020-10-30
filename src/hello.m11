@@ -13,7 +13,7 @@ ttd = 177566            ; terminal data buffer
 CR = 15
 LF = 12
 
-.=1000
+.=10000
 start:
     mov #msg, r0        ; address of the string
 nextchar:
@@ -27,6 +27,7 @@ wait:
 
 done:
     halt
+    rts pc
 
 
 msg:
