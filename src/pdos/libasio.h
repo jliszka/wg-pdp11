@@ -3,6 +3,7 @@
 
 void io_init();
 void read(char * dst);
+unsigned char getch();
 void write(char * str);
 void writeln(char * str);
 void flush();

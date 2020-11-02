@@ -1,8 +1,8 @@
 #include "libasio.h"
 
-void exec(int argc, char *argv[]);
-void help(int argc, char *argv[]);
-void echo(int argc, char *argv[]);
+int exec(int argc, char *argv[]);
+int help(int argc, char *argv[]);
+int echo(int argc, char *argv[]);
 
 //
 // Simple command handler
@@ -11,7 +11,7 @@ typedef struct cmd
 {
     char *command;
     char *help;
-    void (*handler)(int, char *[]);
+    int (*handler)(int, char *[]);
 } cmd_t;
 
 #define NUM_CMDS 16
@@ -44,7 +44,7 @@ void cmd()
 //
 // Help command
 //
-void help(int argc, char *argv[])
+int help(int argc, char *argv[])
 {
     for (int i = 0; i < NUM_CMDS; ++i)
     {
@@ -55,12 +55,13 @@ void help(int argc, char *argv[])
             flush();
         }
     }
+    return 0;
 }
 
 //
 // Echo command
 //
-void echo(int argc, char *argv[])
+int echo(int argc, char *argv[])
 {
     for (int i = 0; i < argc; ++i)
     {
@@ -69,4 +70,5 @@ void echo(int argc, char *argv[])
     }
     write("\r\n");
     flush();
+    return 0;
 }
