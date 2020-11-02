@@ -17,14 +17,15 @@
 #####         call C main() function
 #############################################################################*
 _start:
-    mov $00776,sp
+    mov $0160000,sp
     clr r0
 L_0:
+    # Uncomment these to add fake interrupt handlers for debugging
+    # mov r0, (r0)
+    # add $060000, (r0)+   # will trap to 060000 + vector address
     clr (r0)+
     cmp r0, $0400
     bne L_0
-    mov $000137,*$0     # Store JMP _start in vector 0
-    mov $_start,*$2
     jsr pc,_main
     halt
     br _start
