@@ -34,7 +34,7 @@ AOUT2LDA=../../tools/aout2lda.py
 all: pdos.bin
 
 # Dependencies
-pdos.aout: crt0.s isr.s libasio.o boot.o
+pdos.aout: crt0.s isr.s libasio.o boot.o cmd.o exec.o
 
 install: pdos.bin
 	cp pdos.bin ../../

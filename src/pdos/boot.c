@@ -3,11 +3,11 @@
 
 extern void cmd();
 
-extern int main()
+int main()
 {
     io_init();
 
-    writeln("2 Welcome to PDOS.");
+    writeln("Welcome to PDOS.");
 
-    //    cmd();
+    cmd();
 }

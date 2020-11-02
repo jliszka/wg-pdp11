@@ -46,10 +46,11 @@ void io_init()
     outptr = outbuf;
     inptr = inbuf;
 
-    tt_enable();
-    kb_disable();
+    tt_disable();
+    tt_disable();
 
     isrinit();
+    kb_enable();
 }
 
 void write(char *str)
@@ -89,7 +90,6 @@ void flush()
     {
         asm("wait");
     }
-    //    tt_disable();
 }
 
 // Keyboard interrupt handler, called from isr.s
