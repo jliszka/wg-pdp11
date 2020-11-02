@@ -33,9 +33,10 @@ void cmd()
         flush();
 
         read(buf);
+        writeln("");
         // XXX parse buf into cmd/argc/argv then dispatch
 
-        write("\r\nGOT ");
+        write("GOT ");
         writeln(buf);
     }
 }
