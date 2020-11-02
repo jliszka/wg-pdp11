@@ -10,13 +10,13 @@ SRCS=$(wildcard *.m11)
 OBJS=$(patsubst %.m11,%.obj,$(SRCS))
 BINS=$(SRCS:.m11=.bin)
 
-all: pdosp-11.bin
+all: pdos.bin
 
-pdosp-11.bin: $(OBJS)
+pdos.bin: $(OBJS)
 	$(OBJ2BIN) $(OBJ2BINOPTS) --outfile=$@ $^
 
-install: pdosp-11.bin
-	cp pdosp-11.bin ../../
+install: pdos.bin
+	cp pdos.bin ../../
 
 clean:
 	rm -f *.obj *.bin *.lst
