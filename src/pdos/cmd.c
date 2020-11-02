@@ -1,4 +1,5 @@
 #include "libasio.h"
+#include "stdlib.h"
 
 int exec(int argc, char *argv[]);
 int help(int argc, char *argv[]);
@@ -27,6 +28,7 @@ cmd_t commands[NUM_CMDS] = {
 void cmd()
 {
     char buf[256];
+    char * argv[8];
     while (1)
     {
         write("pdos> ");
@@ -34,10 +36,12 @@ void cmd()
 
         read(buf);
         writeln("");
-        // XXX parse buf into cmd/argc/argv then dispatch
 
-        write("GOT ");
-        writeln(buf);
+        int argc = strntok(buf, ' ', argv, 8);
+        for (int i = 0; i < argc; i++) {
+            write("GOT ");
+            writeln(argv[i]);
+        }
     }
 }
 
