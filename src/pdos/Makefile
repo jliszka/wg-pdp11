@@ -5,7 +5,7 @@ GCC=pdp11-aout-gcc
 # -nostdlib not to try linking with any system libraries.
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
-GCCOPTS=-nostdlib -N -fno-inline -Os
+GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os
 AOUT2LDA=../../tools/aout2lda.py
 
 %.obj: %.m11
