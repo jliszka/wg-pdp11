@@ -49,6 +49,8 @@ c_hello_isr.aout: isr.s libasio.o
 
 exec.aout: isr.s libasio.o stdlib.o
 
+echo.aout: isr.s libasio.o stdlib.o
+
 install:
 	cp *.bin ../
 

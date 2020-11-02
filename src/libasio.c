@@ -28,11 +28,13 @@ unsigned char * outend = outbuf;
 unsigned char * outptr = outbuf;
 
 unsigned char inbuf[64];
+unsigned char * inend = inbuf;
 unsigned char * inptr = inbuf;
 
 void io_init() {
     outend = outbuf;
     outptr = outbuf;
+    inend = inbuf;
     inptr = inbuf;
 
     volatile unsigned int *xcsr = (unsigned int *)KBS;
@@ -54,15 +56,22 @@ void writeln(char * str) {
 }
 
 void read(char * dst) {
-    while (*(inptr-1) != '\r') {
+    while (*(inend-1) != '\r') {
         asm("wait");
     }
-    char * p = inbuf;
-    while (*p != '\r') {
-        *dst++ = *p++;
+    while (*inptr != '\r') {
+        *dst++ = *inptr++;
     }
     *dst = 0;
+    inend = inbuf;
     inptr = inbuf;
+}
+
+unsigned char getch() {
+    while (inptr == inend) {
+        asm("wait");
+    }
+    return *inptr++;
 }
 
 void flush() {
@@ -79,7 +88,7 @@ void kb_handler() {
     unsigned char *xbuf = (unsigned char *)TTD;
     register char c = *rbuf;
     *xbuf = c;
-    *inptr++ = c;
+    *inend++ = c;
 }
 
 // Terminal interrupt handler, called from isr.s

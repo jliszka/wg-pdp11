@@ -3,3 +3,5 @@ local/
 *.bin
 *.lst
 *.obj
+*.o
+*.aout
