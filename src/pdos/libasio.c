@@ -26,6 +26,7 @@ unsigned char *outend = outbuf;
 unsigned char *outptr = outbuf;
 
 unsigned char inbuf[64];
+unsigned char *inend = inbuf;
 unsigned char *inptr = inbuf;
 
 #define kb_enable() \
@@ -44,6 +45,7 @@ void io_init()
 {
     outend = outbuf;
     outptr = outbuf;
+    inend = inbuf;
     inptr = inbuf;
 
     tt_disable();
@@ -70,17 +72,26 @@ void writeln(char *str)
 
 void read(char *dst)
 {
-    while (*(inptr - 1) != '\r')
+    while (*(inend - 1) != '\r')
     {
         asm("wait");
     }
-    char *p = inbuf;
-    while (*p != '\r')
+    while (*inptr != '\r')
     {
-        *dst++ = *p++;
+        *dst++ = *inptr++;
     }
     *dst = 0;
+    inend = inbuf;
     inptr = inbuf;
+}
+
+unsigned char getch() 
+{
+    while (inptr == inend) 
+    {
+        asm("wait");
+    }
+    return *inptr++;
 }
 
 void flush()
@@ -99,7 +110,7 @@ void kb_handler()
     unsigned char *xbuf = (unsigned char *)TTD;
     register char c = *rbuf;
     *xbuf = c;
-    *inptr++ = c;
+    *inend++ = c;
 }
 
 // Terminal interrupt handler, called from isr.s
