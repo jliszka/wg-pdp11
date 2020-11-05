@@ -37,7 +37,7 @@ all: pdos.bin hello.bin
 pdos.aout: crt0.s isr.s libasio.o stdlib.o boot.o cmd.o exec.o
 
 install: pdos.bin
-	cp pdos.bin ../../
+	cp *.bin ../../
 
 clean:
 	rm -f *.o *.obj *.bin *.lst *.aout

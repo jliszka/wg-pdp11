@@ -38,10 +38,13 @@ void cmd()
         writeln("");
 
         int argc = strntok(buf, ' ', argv, 8);
-        for (int i = 0; i < argc; i++) {
-            write("GOT ");
-            writeln(argv[i]);
-        }
+        if (argc > 0) {
+            for (int i = 0; i < NUM_CMDS; i++) {
+                if (commands[i].command != 0 && strncmp(argv[0], commands[i].command, 16) == 0) {
+                    commands[i].handler(argc, argv);
+                }
+            }
+       }
     }
 }
 
