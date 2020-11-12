@@ -18,6 +18,9 @@
 #define PTR_READY (1 << 7)
 #define PTR_ERROR (1 << 15)
 
+#define DEL 0177
+#define ESC 033
+
 // This lives in isr.s
 extern void isrinit();
 
@@ -107,10 +110,18 @@ void flush()
 void kb_handler()
 {
     unsigned char *rbuf = (unsigned char *)KBD;
-    unsigned char *xbuf = (unsigned char *)TTD;
     register char c = *rbuf;
-    *xbuf = c;
-    *inend++ = c;
+
+    if (c == DEL) {
+        *outend++ = '\b';
+        *outend++ = ' ';
+        *outend++ = '\b';
+        if (inend > inbuf) inend--;
+    } else {
+        *outend++ = c;
+        *inend++ = c;
+    }
+    tt_enable();
 }
 
 // Terminal interrupt handler, called from isr.s
