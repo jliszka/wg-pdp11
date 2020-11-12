@@ -1,0 +1,149 @@
+.title Virtual memory test
+
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+CR = 15
+LF = 12
+
+psw = 177776			; processor status word
+mmr0 = 177572			; memory management register 0, aka SSR0
+mmr3 = 172516			; memory management register 1, aka SSR3
+
+upar = 177640			; base user page address register
+updr = 177600			; base user page data register
+kpar = 172340			; base kernel page address register
+kpdr = 172300			; base kernel page data register
+
+pdr.nr = 0				; non-resident
+pdr.rw = 77406			; page size + read-write flag
+pdr.ro = 77404			; page size + read-only flag
+
+stack = 160000
+
+
+; Virtual address pages
+; page 0: 000000 - 017777  (r0)
+; page 1: 020000 - 037777 2(r0)
+; page 2: 040000 - 057777 4
+; page 3: 060000 - 077777 6
+; page 4: 100000 - 117777 10
+; page 5: 120000 - 137777 12
+; page 6: 140000 - 157777 14
+; page 7: 160000 - 177777 16
+
+
+.asect
+.=20000
+start:
+	mov #stack, sp 			; initialize stack pointer
+
+    jsr r5, print
+	.word cls
+
+	clr @#mmr0				; disable virtual memory
+	bic	#140000, @#psw		; kernel mode (BIt Clear) gonna say... not needed
+
+	jsr r5, bzero
+	.word kpar
+	.word 10
+
+	jsr r5, bzero
+	.word kpdr
+	.word 10
+
+	mov #kpar, r0			; set up kernel page table
+	mov #kpdr, r1
+
+	mov #0, (r0)			; page 0 (low memory): kernel and interrupt vectors, mapped 1:1
+	mov #pdr.rw, (r1)
+
+	mov #200, 2(r0)			; page 1: mapped 1:1 (where this code lives)
+	mov #pdr.ro, 2(r1)
+
+	mov #1200, 14(r0)		; page 6: stack location (the page below 160000) mapped to physical address 120000
+	mov #pdr.rw, 14(r1)
+
+	mov #177600, 16(r0)		; page 7 (high memory): peripherals and processor registers 
+							; mapped 1:1 in the sense of highest virtual page => highest physical page
+							; concretely, virtual address 160000 is mapped to physical address 17760000 (22-bit address)
+	mov #pdr.rw, 16(r1)
+
+
+	jsr r5, bzero
+	.word upar
+	.word 10
+
+	jsr r5, bzero
+	.word updr
+	.word 10
+
+	mov #upar, r0			; set up user page table
+	mov #updr, r1
+
+	mov #200, 2(r0)			; page 1: mapped 1:1 (where this code lives)
+	mov #pdr.ro, 2(r1)
+
+	mov #600, 4(r0)			; page 2: virtual address 40000 mapped to physical address 600 x 100 = 60000
+	mov #pdr.ro, 4(r1)		; NB: this is where msgvir lives and the kernel does NOT have it mapped
+
+	mov #1400, 14(r0)		; page 6: stack location (the page below 160000) mapped to physical address 140000
+	mov #pdr.rw, 14(r1)
+
+	mov #177600, 16(r0)		; page 7 (high memory): peripherals and processor registers 
+							; mapped 1:1 in the sense of highest virtual page => highest physical page
+							; concretely, virtual address 160000 is mapped to physical address 17760000 (22-bit address)
+	mov #pdr.rw, 16(r1)
+
+
+	mov #20, @#mmr3			; enable 22-bit addressing
+	inc @#mmr0				; enable virtual memory
+
+	bis	#140000, @#psw		; set user mode
+	mov #stack, sp 			; initialize user stack pointer
+
+    jsr r5, print
+	.word msgvir
+
+	trap 0
+
+	halt
+
+
+print:
+    mov (r5)+, r0       ; address of the string immediately follows old pc, which is now in r5
+1$:
+    movb (r0)+, @#ttd   ; send the next character
+    beq 3$              ; check if we found a zero byte
+2$:
+    tstb @#tts          ; wait until character transmitted
+    bpl 2$
+    br 1$
+3$:
+    rts r5              ; return
+
+
+bzero:
+	mov (r5)+, r0
+	mov (r5)+, r1
+1$:
+	clr (r0)+
+	sob r1, 1$
+	rts r5
+
+cls:
+	.byte 33
+	.ascii /[2J/		; clear screen
+	.byte 33
+	.asciz /[H/			; cursor to home
+
+
+; Virtual address of the string is 40000
+.=40000
+msgvir:
+
+; Physical address of the string is 60000
+.=60000
+msgphy:
+	.asciz /Hello from user space virtual memory!!/<CR><LF>
+
+.end
