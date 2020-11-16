@@ -52,7 +52,7 @@ void io_init()
     inptr = inbuf;
 
     tt_disable();
-    tt_disable();
+    kb_disable();
 
     isrinit();
     kb_enable();

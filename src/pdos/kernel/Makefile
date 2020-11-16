@@ -1,12 +1,12 @@
-M11=../../bin/macro11
-OBJ2BIN=../../bin/obj2bin
+M11=macro11
+OBJ2BIN=obj2bin
 OBJ2BINOPTS=--binary --rt11
 GCC=pdp11-aout-gcc
 # -nostdlib not to try linking with any system libraries.
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
 GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os
-AOUT2LDA=../../tools/aout2lda.py
+AOUT2LDA=aout2lda.py
 
 %.obj: %.m11
 	$(M11) -l $*.lst -o $@ $<
@@ -27,17 +27,16 @@ AOUT2LDA=../../tools/aout2lda.py
 
 # Convert from a.out format into the tape loader format
 %.bin: %.aout
-	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x200 --vector0
+	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x200
 
 ##########################################################
 
-all: pdos.bin hello.bin
+all: pdos.bin
 
-# Dependencies
-pdos.aout: crt0.s isr.s libasio.o stdlib.o boot.o cmd.o exec.o
+pdos.aout: crt0.s isr.s traps.s libasio.o stdlib.o boot.o cmd.o exec.o
 
-install: pdos.bin
-	cp *.bin ../../
+install:
+	cp *.bin ../../../
 
 clean:
 	rm -f *.o *.obj *.bin *.lst *.aout

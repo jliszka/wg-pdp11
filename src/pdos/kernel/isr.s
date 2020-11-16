@@ -6,14 +6,17 @@
 
 kbv = 060
 ttv = 064
+trapv = 034
 
 .globl _kb_handler          # these are C functions that live in libasio.c
 .globl _tt_handler
+.globl ktrap
 
 .globl _isrinit
 _isrinit:                   # this is called from libasio.c as isrinit()
     mov $kbisr, @$kbv       # install the keyboard interrupt handler
     mov $ttisr, @$ttv       # install the terminal interrupt handler
+    mov $ktrap, @$trapv     # install the kernel trap handler
     rts pc
 
 # All these interrupt handlers do is save the registers, call back into
