@@ -4,6 +4,7 @@
 int exec(int argc, char *argv[]);
 int help(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
+int halt(int argc, char *argv[]);
 
 //
 // Simple command handler
@@ -20,6 +21,7 @@ cmd_t commands[NUM_CMDS] = {
     {"help", "usage: help\r\nShows all commands and their usage\r\n", &help},
     {"echo", "usage: echo <arg1> <arg2> <arg3>\r\nEchos input arguments to the output\r\n", &echo},
     {"exec", "usage: exec\r\nLoads and runs the program from the tape reader device\r\n", &exec},
+    {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
 };
 
 //
@@ -35,7 +37,6 @@ void cmd()
         flush();
 
         read(buf);
-        writeln("");
 
         int argc = strntok(buf, ' ', argv, 8);
         if (argc > 0) {
@@ -58,8 +59,7 @@ int help(int argc, char *argv[])
         if (commands[i].command != 0)
         {
             writeln(commands[i].command);
-            write(commands[i].help);
-            flush();
+            writeln(commands[i].help);
         }
     }
     return 0;
@@ -70,7 +70,7 @@ int help(int argc, char *argv[])
 //
 int echo(int argc, char *argv[])
 {
-    for (int i = 0; i < argc; ++i)
+    for (int i = 1; i < argc; ++i)
     {
         write(argv[i]);
         write(" ");
@@ -78,4 +78,11 @@ int echo(int argc, char *argv[])
     write("\r\n");
     flush();
     return 0;
+}
+
+//
+// Halt command
+//
+int halt(int argc, char *argv[]) {
+    asm("halt");
 }

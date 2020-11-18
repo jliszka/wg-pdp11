@@ -24,13 +24,14 @@
 // This lives in isr.s
 extern void isrinit();
 
-unsigned char outbuf[64];
-unsigned char *outend = outbuf;
-unsigned char *outptr = outbuf;
+#define BUFSIZE 64
+unsigned char outbuf[BUFSIZE];
+volatile unsigned int outend = 0;
+volatile unsigned int outptr = 0;
 
-unsigned char inbuf[64];
-unsigned char *inend = inbuf;
-unsigned char *inptr = inbuf;
+unsigned char inbuf[BUFSIZE];
+volatile unsigned int inend = 0;
+volatile unsigned int inptr = 0;
 
 #define kb_enable() \
     *((volatile unsigned int *)KBS) |= KB_ENABLE;
@@ -46,10 +47,10 @@ unsigned char *inptr = inbuf;
 
 void io_init()
 {
-    outend = outbuf;
-    outptr = outbuf;
-    inend = inbuf;
-    inptr = inbuf;
+    outend = 0;
+    outptr = 0;
+    inend = 0;
+    inptr = 0;
 
     tt_disable();
     kb_disable();
@@ -62,7 +63,8 @@ void write(char *str)
 {
     while (*str)
     {
-        *outend++ = *str++;
+        outbuf[outend] = *str++;
+        outend = (outend + 1) % BUFSIZE;
     }
 }
 
@@ -75,17 +77,17 @@ void writeln(char *str)
 
 void read(char *dst)
 {
-    while (*(inend - 1) != '\r')
+    while (inbuf[inend-1] != '\r')
     {
         asm("wait");
     }
-    while (*inptr != '\r')
+    while (inbuf[inptr] != '\r')
     {
-        *dst++ = *inptr++;
+        *dst++ = inbuf[inptr++];
     }
     *dst = 0;
-    inend = inbuf;
-    inptr = inbuf;
+    inend = 0;
+    inptr = 0;
 }
 
 unsigned char getch() 
@@ -94,13 +96,13 @@ unsigned char getch()
     {
         asm("wait");
     }
-    return *inptr++;
+    return inbuf[inptr++];
 }
 
 void flush()
 {
     tt_enable();
-    while (outend != outbuf)
+    while (outptr != outend)
     {
         asm("wait");
     }
@@ -109,38 +111,39 @@ void flush()
 // Keyboard interrupt handler, called from isr.s
 void kb_handler()
 {
-    unsigned char *rbuf = (unsigned char *)KBD;
+    volatile unsigned char *rbuf = (unsigned char *)KBD;
     register char c = *rbuf;
 
-    if (c == DEL) {
-        *outend++ = '\b';
-        *outend++ = ' ';
-        *outend++ = '\b';
-        if (inend > inbuf) inend--;
+    if (c == DEL && inend > 0) {
+        outbuf[(outend++)%BUFSIZE] = '\b';
+        outbuf[(outend++)%BUFSIZE] = ' ';
+        outbuf[(outend++)%BUFSIZE] = '\b';
+        inend--;
+    } else if (c == '\r') {
+        outbuf[(outend++)%BUFSIZE] = '\r';
+        outbuf[(outend++)%BUFSIZE] = '\n';        
+        inbuf[inend++] = c;
     } else {
-        *outend++ = c;
-        *inend++ = c;
+        outbuf[(outend++)%BUFSIZE] = c;
+        inbuf[inend++] = c;
     }
+    outend = outend % BUFSIZE;
     tt_enable();
 }
 
 // Terminal interrupt handler, called from isr.s
 void tt_handler()
 {
-    unsigned char *xbuf = (unsigned char *)TTD;
+    volatile unsigned char *xbuf = (unsigned char *)TTD;
 
     if (outptr == outend)
     {
-        if (outptr != outbuf)
-        {
-            outptr = outbuf;
-            outend = outbuf;
-            tt_disable();
-        }
+        tt_disable();
     }
     else
     {
-        *xbuf = *outptr++;
+        *xbuf = outbuf[outptr];
+        outptr = (outptr + 1) % BUFSIZE;
     }
 }
 

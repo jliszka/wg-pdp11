@@ -33,7 +33,7 @@ AOUT2LDA=aout2lda.py
 
 all: hello.bin
 
-hello_c.aout: hello_c.o sys.s
+hello.aout: hello.o sys.s
 
 install:
 	cp *.bin ../../../
