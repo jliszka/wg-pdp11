@@ -1,6 +1,6 @@
 
-M11=../bin/macro11
-OBJ2BIN=../bin/obj2bin
+M11=macro11
+OBJ2BIN=obj2bin
 OBJ2BINOPTS=--binary --rt11
 
 GCC=pdp11-aout-gcc
@@ -9,7 +9,7 @@ GCC=pdp11-aout-gcc
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
 GCCOPTS=-nostdlib -N -fno-inline -Os
-AOUT2LDA=../tools/aout2lda.py
+AOUT2LDA=../../tools/aout2lda.py
 
 %.obj: %.m11
 	$(M11) -l $*.lst -o $@ $<
@@ -52,7 +52,7 @@ exec.aout: isr.s libasio.o stdlib.o
 echo.aout: isr.s libasio.o stdlib.o
 
 install:
-	cp *.bin ../
+	cp *.bin ../../
 
 clean:
 	rm -f *.obj *.bin *.lst *.aout *.o *.a
