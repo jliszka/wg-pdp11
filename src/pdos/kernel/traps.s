@@ -16,7 +16,7 @@ ktrap:
 	mov 4(sp), r2		# return address
 	sub $2, r2			# subtract 2 to get the trap instruction
 	clr r3
-	movb (r2), r3		# get the low byte of the instruction to determin the trap number
+	movb (r2), r3		# get the low byte of the instruction to determine the trap number
 	asl r3				# multiply by 2...
 	jmp @ttable(r3)		# and address into the jump table
 

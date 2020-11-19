@@ -2,29 +2,29 @@
 #include "stdlib.h"
 #include "libasio.h"
 
-int exec(int argc, char *argv[])
-{
+
+void * load() {
     char buf[64];
     int start_address = 0;
 
-    // 1. Read in the header. It consists of 3 ints:
-    // header[0] = 1
-    // header[1] = number of bytes
-    // header[2] = start address to load the program to
-
     while (1) {
+
+        // 1. Read in the header. It consists of 3 ints:
+        // header[0] = 1
+        // header[1] = number of bytes
+        // header[2] = start address to load the program to
 
         int header[3];
         int header_bytes = ptr_read(6, (unsigned char *)header);
 
         if (header_bytes != 6) {
             writeln("Malformed header");
-            return 1;
+            return 0;
         }
 
         if (header[0] != 1) {
             writeln("Binary not in correct format");
-            return 1;
+            return 0;
         }
 
         // 2. Copy the bytes to the destination address
@@ -54,10 +54,22 @@ int exec(int argc, char *argv[])
         ptr_read(1, &checksum);
     }
 
-    // 4. Call the loaded program as if it were a function
-
-    int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
-    start(argc, argv);
-
-    return 0;
+    return (void *)start_address;
 }
+
+int exec(int argc, char *argv[]) {
+
+    void * start_address = load();
+
+    if (start_address != 0) {
+
+        // Set up user page tables
+
+        // Set user mode
+
+        // Call user program main
+        int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
+        start(argc, argv);
+    }
+}
+

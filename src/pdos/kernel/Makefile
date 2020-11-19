@@ -33,7 +33,7 @@ AOUT2LDA=aout2lda.py
 
 all: pdos.bin
 
-pdos.aout: crt0.s isr.s traps.s libasio.o stdlib.o boot.o cmd.o exec.o
+pdos.aout: crt0.s isr.s traps.s libasio.o stdlib.o boot.o cmd.o exec.o vm.o
 
 install:
 	cp *.bin ../../../
