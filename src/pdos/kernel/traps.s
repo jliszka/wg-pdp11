@@ -15,8 +15,9 @@ ktrap:
 	push r3
 	mov 4(sp), r2		# return address
 	sub $2, r2			# subtract 2 to get the trap instruction
-	clr r3
-	movb (r2), r3		# get the low byte of the instruction to determine the trap number
+	mfpi (r2)			# read the trap instruction (from previous address space)
+	pop r2
+	movb r2, r3			# get the low byte of the instruction to determine the trap number
 	asl r3				# multiply by 2...
 	jmp @ttable(r3)		# and address into the jump table
 
@@ -36,7 +37,16 @@ ttable:
 	.word trap.flush
 
 trap.exit:
-	jmp ret
+	# current stack looks like:
+	# - r3
+	# - r2
+	# - return address for this trap
+	# - PSW for this trap
+	# - return address for jsr to call user main(
+	# We want to ignore the first 4 and then return, so it'll be as if
+	# the jsr to user main() "returned" into kernel mode.
+	add $8, sp
+	rts pc
 
 trap.read:
 	push r0
