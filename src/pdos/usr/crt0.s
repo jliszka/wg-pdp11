@@ -15,12 +15,10 @@
 #####         call C main() function
 #############################################################################*
 _start:
-    # clr sp
+    clr sp
 L_0:
     jsr pc,_main
-    clr r0
-    rts pc
-    # trap 0 		# exit
+    trap 0      # exit
 
 #############################################################################*
 ##### ___main: called by C main() function. Currently does nothing

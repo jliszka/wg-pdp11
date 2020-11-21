@@ -7,6 +7,6 @@ void main() {
 	read(16, buf);
 	write(6, "Hi, ");
 	write(16, buf);
-	write(64, ", nice to meet you!\r\n");
+	write(64, ", it's nice to meet you!\r\n");
 	flush();
 }

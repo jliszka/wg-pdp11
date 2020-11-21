@@ -1,11 +1,18 @@
 
+#include "exec.h"
 #include "stdlib.h"
 #include "libasio.h"
 #include "vm.h"
 
-int load(unsigned int base_address) {
+int loader(int code_page) {
     char buf[64];
     int start_address = 0;
+
+    int kernel_virtual_page = 2;
+    unsigned int base_address = vm_page_base_address(kernel_virtual_page);
+    vm_map_kernel_page(kernel_virtual_page, vm_page_block_number(code_page));
+
+    int ret = 0;
 
     while (1) {
 
@@ -19,12 +26,14 @@ int load(unsigned int base_address) {
 
         if (header_bytes != 6) {
             writeln("Malformed header");
-            return -1;
+            ret = -1;
+            break;
         }
 
         if (header[0] != 1) {
             writeln("Binary not in correct format");
-            return -1;
+            ret = -1;
+            break;
         }
 
         // 2. Copy the bytes to the destination address
@@ -56,26 +65,18 @@ int load(unsigned int base_address) {
         ptr_read(1, &checksum);
     }
 
-    return 0;
+    vm_unmap_kernel_page(kernel_virtual_page);
+    return ret;
 }
 
-int exec(int argc, char *argv[]) {
+int exec(int code_page, int stack_page, int argc, char *argv[]) {
 
     unsigned int * start_address = (unsigned int *)vm_page_base_address(1);
-    int kernel_virtual_page = 2;
-    int phys_page = 10;
-    int stack_phys_page = 11;
-
-    vm_map_kernel_page(kernel_virtual_page, vm_page_block_number(phys_page));
-    int ret = load(vm_page_base_address(kernel_virtual_page));
-    vm_unmap_kernel_page(kernel_virtual_page);
-
-    if (ret != 0) {
-        return ret;
-    }
 
     // Set up user page tables
-    vm_user_init(vm_page_block_number(phys_page), vm_page_block_number(stack_phys_page));
+    vm_user_init(vm_page_block_number(code_page), vm_page_block_number(stack_page));
+
+    // TODO: Copy argv to user space
 
     // Set up instructions to switch to user mode just before the user program start address
     // bis #140000, @#psw
