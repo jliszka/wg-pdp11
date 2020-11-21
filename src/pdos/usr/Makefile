@@ -35,6 +35,8 @@ all: hello.bin
 
 hello.aout: hello.o sys.s
 
+echo.aout: echo.o sys.s
+
 install:
 	cp *.bin ../../../
 

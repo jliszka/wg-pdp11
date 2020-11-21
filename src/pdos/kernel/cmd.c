@@ -37,13 +37,31 @@ prog_t progs[MAX_PROGS];
 
 unsigned int next_page = 10;
 
+int interpret(char * input) {
+    char * argv[8];
+    int argc = strntok(input, ' ', argv, 8);
+    if (argc > 0) {
+        for (int i = 0; i < NUM_CMDS; i++) {
+            if (commands[i].command != 0 && strncmp(argv[0], commands[i].command, 16) == 0) {
+                commands[i].handler(argc, argv);
+                return 0;
+            }
+        }
+        for (int i = 0; i < num_progs; i++) {
+            if (progs[i].code_page != 0 && strncmp(argv[0], progs[i].name, 8) == 0) {
+                return exec(progs[i].code_page, progs[i].stack_page, argc, argv);
+            }
+        }
+        writeln("Unknown command");
+    }
+}
+
 //
 // Main command loop
 //
 void cmd()
 {
     char buf[256];
-    char * argv[8];
 
     for (int i = 0; i < MAX_PROGS; i++) {
         progs[i].code_page = 0;
@@ -55,22 +73,9 @@ void cmd()
         flush();
 
         read(buf);
-
-        int argc = strntok(buf, ' ', argv, 8);
-        if (argc > 0) {
-            for (int i = 0; i < NUM_CMDS; i++) {
-                if (commands[i].command != 0 && strncmp(argv[0], commands[i].command, 16) == 0) {
-                    commands[i].handler(argc, argv);
-                    break;
-                }
-            }
-            for (int i = 0; i < num_progs; i++) {
-                if (progs[i].code_page != 0 && strncmp(argv[0], progs[i].name, 8) == 0) {
-                    exec(progs[i].code_page, progs[i].stack_page, argc, argv);
-                    break;
-                }
-            }
-        }
+        int ret = interpret(buf);
+        write(itoa(10, ret, buf));
+        write(" ");
     }
 }
 

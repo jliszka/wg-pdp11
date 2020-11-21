@@ -7,6 +7,12 @@ char * itoa(int radix, int n, char * dst) {
         return dst;
     }
 
+    if (n == 0) {
+        dst[0] = '0';
+        dst[1] = 0;
+        return dst;
+    }
+
     // The only way to do this is to do it backwards
     // (least significant digit first)
     char * p = dst;
@@ -38,17 +44,18 @@ int strncmp(char * a, char * b, int n)
             return diff;
         }
     }
-    return 0;
+    return *b - *a;
 }
 
-void strncpy(char * dst, char * src, int n)
+char * strncpy(char * dst, char * src, int n)
 {
     // Copy up to n-1 characters and null-terminate
     while (*src && --n)
     {
         *dst++ = *src++;
     }
-    *dst = 0;
+    *dst++ = 0;
+    return dst;
 }
 
 int strntok(char * str, char delim, char * tokens[], int ntokens)

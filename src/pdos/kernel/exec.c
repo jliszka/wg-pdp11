@@ -4,13 +4,15 @@
 #include "libasio.h"
 #include "vm.h"
 
+#define KERNEL_MAPPING_PAGE 2
+#define ARGV_BUFSIZE 64
+
 int loader(int code_page) {
     char buf[64];
     int start_address = 0;
 
-    int kernel_virtual_page = 2;
-    unsigned int base_address = vm_page_base_address(kernel_virtual_page);
-    vm_map_kernel_page(kernel_virtual_page, vm_page_block_number(code_page));
+    unsigned int base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(code_page));
 
     int ret = 0;
 
@@ -65,18 +67,32 @@ int loader(int code_page) {
         ptr_read(1, &checksum);
     }
 
-    vm_unmap_kernel_page(kernel_virtual_page);
+    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
     return ret;
 }
 
 int exec(int code_page, int stack_page, int argc, char *argv[]) {
-
     unsigned int * start_address = (unsigned int *)vm_page_base_address(1);
 
     // Set up user page tables
     vm_user_init(vm_page_block_number(code_page), vm_page_block_number(stack_page));
 
-    // TODO: Copy argv to user space
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(stack_page));
+
+    // Set up user stack
+    unsigned int * stack = (unsigned int *)(vm_page_base_address(KERNEL_MAPPING_PAGE + 1) - ARGV_BUFSIZE - 4);
+    *stack++ = argc;
+    *stack++ = -ARGV_BUFSIZE;
+
+    // Copy argv to the stack page in user space
+    char ** user_argv = (char **)stack;
+    char * dst = (char *)(user_argv + argc);
+    for (int i = 0; i < argc; i++) {
+        user_argv[i] = (char *)((dst - (char *)user_argv) - ARGV_BUFSIZE);
+        dst = strncpy(dst, argv[i], ARGV_BUFSIZE);
+    }
+
+    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
 
     // Set up instructions to switch to user mode just before the user program start address
     // bis #140000, @#psw
@@ -85,8 +101,10 @@ int exec(int code_page, int stack_page, int argc, char *argv[]) {
     start_address[1] = 0140000;
     start_address[2] = 0177776;
 
-    // Call user program main
+    // Call user program main. It doesn't matter what args we pass here, because those
+    // all end up on the kernel stack, not the user stack. But when the program exits,
+    // we need the return address and arguments to be set up properly.
     int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
-    return start(argc, argv);
+    return start(argc, (char **)-ARGV_BUFSIZE);
 }
 
