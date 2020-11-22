@@ -114,11 +114,15 @@ void kb_handler()
     volatile unsigned char *rbuf = (unsigned char *)KBD;
     register char c = *rbuf;
 
-    if (c == DEL && inend > 0) {
-        outbuf[(outend++)%BUFSIZE] = '\b';
-        outbuf[(outend++)%BUFSIZE] = ' ';
-        outbuf[(outend++)%BUFSIZE] = '\b';
-        inend--;
+    if (c == DEL) {
+        if (inend > 0) {
+            outbuf[(outend++)%BUFSIZE] = '\b';
+            outbuf[(outend++)%BUFSIZE] = ' ';
+            outbuf[(outend++)%BUFSIZE] = '\b';
+            inend--;
+        }
+    } else if (c == ESC) {
+        ; // Don't echo or store escape codes (e.g., arrow keys)
     } else if (c == '\r') {
         outbuf[(outend++)%BUFSIZE] = '\r';
         outbuf[(outend++)%BUFSIZE] = '\n';        
