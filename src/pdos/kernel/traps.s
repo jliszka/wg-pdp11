@@ -27,8 +27,9 @@ ret:
 	rti
 
 .even
+bufsize = 64
 buf:
-.=.+64
+.=.+bufsize
 
 ttable:
 	.word trap.exit
@@ -86,6 +87,15 @@ trap.read:
 	jmp ret
 
 trap.write:
+	tst r0				# nothing to write? return
+	beq ret
+
+	cmp r0, $bufsize	# don't copy over more than the size of the buffer
+	ble 4$
+	mov $bufsize, r0
+
+4$:
+	push r0
 	mov $buf, r3
 	bit r1, $1			# check if the address is even
 	beq 1$
@@ -93,24 +103,27 @@ trap.write:
 	dec r1				# if so, copy only the first byte
 	mfpi (r1)+
 	pop r2
-	br 3$
+	br 2$
 
 1$:
 	mfpi (r1)+			# read a word from the previous address space
 	pop r2
 	movb r2, (r3)+		# copy the low byte to destination buffer
-	beq 2$
-3$:
+	dec r0
+	beq 3$
+2$:
 	ash $-8, r2
 	movb r2, (r3)+		# copy the high byte to destination buffer
-	beq 2$
+	dec r0
+	beq 3$
 	br 1$
 
-2$:
+3$:
 	push $buf
 	jsr pc, _write
 	add $2, sp
-	
+
+	pop r0
 	jmp ret
 
 trap.flush:

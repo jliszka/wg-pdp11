@@ -33,9 +33,9 @@ AOUT2LDA=aout2lda.py
 
 all: hello.bin
 
-hello.aout: hello.o sys.s
+hello.aout: hello.o stdlib.o sys.s
 
-echo.aout: echo.o sys.s
+echo.aout: echo.o stdlib.o sys.s
 
 install:
 	cp *.bin ../../../

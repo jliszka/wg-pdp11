@@ -37,7 +37,7 @@ prog_t progs[MAX_PROGS];
 
 unsigned int next_page = 10;
 
-int interpret(char * input) {
+int execute(char * input) {
     char * argv[8];
     int argc = strntok(input, ' ', argv, 8);
     if (argc > 0) {
@@ -73,7 +73,7 @@ void cmd()
         flush();
 
         read(buf);
-        int ret = interpret(buf);
+        int ret = execute(buf);
         write(itoa(10, ret, buf));
         write(" ");
     }

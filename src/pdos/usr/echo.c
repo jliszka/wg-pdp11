@@ -1,12 +1,12 @@
+#include "stdlib.h"
 #include "sys.h"
 
 int main(int argc, char ** argv) {
 	for (int i = 0; i < argc; i++) {
-		write(64, argv[i]);
-		write(2, " ");
+		print(argv[i]);
+		print(" ");
 	}
-	write(3, "\r\n");
-	flush();
+	println("");
 
 	return argc;
 }

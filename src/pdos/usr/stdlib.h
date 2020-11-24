@@ -1,7 +1,7 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-void input(char * buf);
+int strlen(char * str);
 void print(char * buf);
 void println(char * buf);
 
