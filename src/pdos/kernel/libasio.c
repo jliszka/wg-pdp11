@@ -75,19 +75,22 @@ void writeln(char *str)
     flush();
 }
 
-void read(char *dst)
+int read(int nbytes, char *dst)
 {
+    int len = 0;
     while (inbuf[inend-1] != '\r')
     {
         asm("wait");
     }
-    while (inbuf[inptr] != '\r')
+    while (inbuf[inptr] != '\r' && len < nbytes-1 && len < BUFSIZE)
     {
         *dst++ = inbuf[inptr++];
+        len++;
     }
     *dst = 0;
     inend = 0;
     inptr = 0;
+    return len+1;
 }
 
 unsigned char getch() 

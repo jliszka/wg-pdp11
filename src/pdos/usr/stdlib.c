@@ -21,3 +21,12 @@ void println(char * str) {
 	flush();
 }
 
+int input(int len, char * buf) {
+	int c = read(len, buf);
+	if (c < 2) return c;
+	// byte count includes null terminator
+	while (buf[c-2] != '\r') {
+		c += read(len-c-1, buf+c-1);
+	}
+	return c;
+}

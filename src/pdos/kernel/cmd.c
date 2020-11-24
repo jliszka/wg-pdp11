@@ -72,7 +72,7 @@ void cmd()
         write("pdos> ");
         flush();
 
-        read(buf);
+        read(256, buf);
         int ret = execute(buf);
         write(itoa(10, ret, buf));
         write(" ");

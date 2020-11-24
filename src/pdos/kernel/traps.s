@@ -50,15 +50,15 @@ trap.exit:
 	rts pc
 
 trap.read:
-	push r0
 	push r1
 
 	push $buf
-	jsr pc, _read
-	add $2, sp
+	push r0
+	jsr pc, _read		# return value (r0): how many bytes read
+	add $4, sp
 
 	pop r1
-	pop r0
+	push r0				# save original value of r0
 
 	mov $buf, r2
 	bit r1, $1			# check if the address is even
@@ -68,22 +68,25 @@ trap.read:
 	mfpi (r1)			# copy bytes from userspace destination buffer to stack
 	mov sp, r3			# use r3 instead of sp because sp can only point to even addresses
 	inc r3
-	br 3$
+	br 2$
 
 1$:
 	mfpi (r1)			# copy bytes from userspace destination buffer to stack
 	mov sp, r3
 	movb (r2)+, (r3)+	# overwrite with data from $buf
-	beq 2$
+	dec r0
+	beq 3$
 
-3$:
+2$:
 	movb (r2)+, (r3)+
-	beq 2$
+	dec r0
+	beq 3$
 	mtpi (r1)+			# copy it back to userspace destination buffer
 	br 1$
-2$:
+3$:
 	mtpi (r1)+			# copy final word to userspace destination buffer
 
+	pop r0				# number of bytes read
 	jmp ret
 
 trap.write:
