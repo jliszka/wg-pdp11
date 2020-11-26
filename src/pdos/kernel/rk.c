@@ -11,11 +11,11 @@
 #define RK_ADDRESS(sector) ((((sector) / 12) << 4) | ((sector) % 12))
 
 
-int _rk_fn(int fn, int sector, unsigned int byte_count, unsigned char * buf) {
-    volatile unsigned int *rk_control = (unsigned int *)RKCS;
-    volatile unsigned int *rk_word_count = (unsigned int *)RKWC;
-    volatile unsigned int *rk_disk_address = (unsigned int *)RKDA;
-    volatile unsigned char **rk_buffer_address = (unsigned char **)RKBA;
+int _rk_fn(int fn, int sector, unsigned char * buf, unsigned int byte_count) {
+    volatile unsigned int *rk_control = (volatile unsigned int *)RKCS;
+    unsigned int *rk_word_count = (unsigned int *)RKWC;
+    unsigned int *rk_disk_address = (unsigned int *)RKDA;
+    unsigned char **rk_buffer_address = (unsigned char **)RKBA;
 
     *rk_disk_address = RK_ADDRESS(sector);
     *rk_buffer_address = buf;
@@ -27,12 +27,12 @@ int _rk_fn(int fn, int sector, unsigned int byte_count, unsigned char * buf) {
     return 0;
 }
 
-int rk_read(int sector, unsigned int byte_count, unsigned char * dst) {
-    return _rk_fn(RK_READ, sector, byte_count, dst);
+int rk_read(int sector, unsigned char * dst, unsigned int byte_count) {
+    return _rk_fn(RK_READ, sector, dst, byte_count);
 }
 
-int rk_write(int sector, unsigned int byte_count, unsigned char * src) {
-    return _rk_fn(RK_WRITE, sector, byte_count, src);
+int rk_write(int sector, unsigned char * src, unsigned int byte_count) {
+    return _rk_fn(RK_WRITE, sector, src, byte_count);
 }
 
 

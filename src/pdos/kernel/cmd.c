@@ -1,11 +1,19 @@
 #include "libasio.h"
 #include "stdlib.h"
 #include "exec.h"
+#include "fs.h"
 
 int help(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
 int halt(int argc, char *argv[]);
 int load(int argc, char *argv[]);
+int mkfs(int argc, char *argv[]);
+int mount(int argc, char *argv[]);
+int mkdir(int argc, char *argv[]);
+int touch(int argc, char *argv[]);
+int cd(int argc, char *argv[]);
+int ls(int argc, char *argv[]);
+
 
 //
 // Simple command handler
@@ -23,6 +31,12 @@ cmd_t commands[NUM_CMDS] = {
     {"echo", "usage: echo <arg1> <arg2> <arg3>\r\nEchos input arguments to the output\r\n", &echo},
     {"load", "usage: load <name>\r\nLoads a program from the tape reader device as the given name\r\n", &load},
     {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
+    {"mkfs", "", &mkfs},
+    {"mount", "", &mount},
+    {"mkdir", "", &mkdir},
+    {"touch", "", &touch},
+    {"cd", "", &cd},
+    {"ls", "", &ls},
 };
 
 unsigned int num_progs = 0;
@@ -36,6 +50,7 @@ typedef struct prog {
 prog_t progs[MAX_PROGS];
 
 unsigned int next_page = 10;
+unsigned int pwd = 0;
 
 int execute(char * input) {
     char * argv[8];
@@ -43,8 +58,7 @@ int execute(char * input) {
     if (argc > 0) {
         for (int i = 0; i < NUM_CMDS; i++) {
             if (commands[i].command != 0 && strncmp(argv[0], commands[i].command, 16) == 0) {
-                commands[i].handler(argc, argv);
-                return 0;
+                return commands[i].handler(argc, argv);
             }
         }
         for (int i = 0; i < num_progs; i++) {
@@ -69,13 +83,15 @@ void cmd()
 
     while (1)
     {
-        write("pdos> ");
+        write("pdos:");
+        write(itoa(10, pwd, buf));
+        write("> ");
         flush();
 
         read(256, buf);
         int ret = execute(buf);
         write(itoa(10, ret, buf));
-        write(" ");
+        write(") ");
     }
 }
 
@@ -124,7 +140,7 @@ int halt(int argc, char *argv[]) {
 int load(int argc, char *argv[]) {
     if (argc < 2) {
         writeln("No name specified");
-        return 1;
+        return -1;
     }
 
     int ret = loader(next_page);
@@ -135,5 +151,52 @@ int load(int argc, char *argv[]) {
     progs[p].code_page = next_page++;
     progs[p].stack_page = next_page++;
     return 0;
+}
+
+int mkfs(int argc, char *argv[]) {
+    pwd = fs_mkfs();
+    return 0;
+}
+
+int mount(int argc, char *argv[]) {
+    pwd = fs_mount();
+    return 0;
+}
+
+int mkdir(int argc, char *argv[]) {
+    if (argc < 2) {
+        writeln("Not enough arguments");
+        return -1;
+    }
+    return fs_mkdir(pwd, argv[1]);
+}
+
+int touch(int argc, char *argv[]) {
+    if (argc < 2) {
+        writeln("Not enough arguments");
+        return -1;
+    }
+    return fs_touch(pwd, argv[1]);
+}
+
+int cd(int argc, char *argv[]) {
+    if (argc < 2) {
+        writeln("Not enough arguments");
+        return -1;
+    }
+    int inode = fs_find_inode(pwd, argv[1]);
+    if (inode >= 0 && fs_is_dir(inode)) {
+        pwd = inode;
+    }
+    return inode;
+}
+
+int ls(int argc, char *argv[]) {
+    dirent_t dir[32];
+    int n = fs_read_dir(pwd, 32, dir);
+    for (int i = 0; i < n; i++) {
+        writeln(dir[i].filename);
+    }
+    return n;
 }
 

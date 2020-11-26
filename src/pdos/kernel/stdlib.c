@@ -78,3 +78,20 @@ int strntok(char * str, char delim, char * tokens[], int ntokens)
     }
     return token_count;
 }
+
+void bzero(unsigned char * buf, int n) {
+    int words = n >> 1;
+    unsigned int * w = (unsigned int *)buf;
+    for (int i = 0; i < words; i++) {
+        w[i] = 0;
+    }
+}
+
+void bcopy(unsigned char * dst, unsigned char * src, int n) {
+    int words = n >> 1;
+    unsigned int * d = (unsigned int *)dst;
+    unsigned int * s = (unsigned int *)src;    
+    for (int i = 0; i < words; i++) {
+        d[i] = s[i];
+    }
+}
