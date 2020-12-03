@@ -1,5 +1,5 @@
-
 #include "libasio.h"
+#include "stdlib.h"
 #include "vm.h"
 #include "fs.h"
 
@@ -11,8 +11,8 @@ int main()
     vm_init();
     fs_init();
 
-	write("\033[2J\033[H");
-    writeln("Welcome to PDOS.");
+	print("\033[2J\033[H");
+    println("Welcome to PDOS.");
 
     cmd();
 }

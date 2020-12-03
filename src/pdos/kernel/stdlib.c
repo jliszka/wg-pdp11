@@ -1,4 +1,5 @@
 #include "stdlib.h"
+#include "libasio.h"
 
 char * itoa(int radix, int n, char * dst) {
     if (n < 0) {
@@ -80,18 +81,34 @@ int strntok(char * str, char delim, char * tokens[], int ntokens)
 }
 
 void bzero(unsigned char * buf, int n) {
-    int words = n >> 1;
-    unsigned int * w = (unsigned int *)buf;
-    for (int i = 0; i < words; i++) {
-        w[i] = 0;
+    for (int i = 0; i < n; i++) {
+        buf[i] = 0;
     }
 }
 
 void bcopy(unsigned char * dst, unsigned char * src, int n) {
-    int words = n >> 1;
-    unsigned int * d = (unsigned int *)dst;
-    unsigned int * s = (unsigned int *)src;    
-    for (int i = 0; i < words; i++) {
-        d[i] = s[i];
+    for (int i = 0; i < n; i++) {
+        dst[i] = src[i];
     }
 }
+
+int strlen(char * str) {
+    int len = 0;
+    while (*str++) len++;
+    return len;
+}
+
+void print(char * str) {
+    int len = strlen(str)+1;
+    int written = 0;
+    do {
+        written += write(len - written, str + written);
+    } while (written < len);
+}
+
+void println(char * str) {
+    print(str);
+    write(3, "\r\n");
+    flush();
+}
+

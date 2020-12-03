@@ -218,20 +218,82 @@ int fs_mkdir(int parent_dir_inode, char * dirname) {
 	return new_inode;
 }
 
-int fs_write(int inode, unsigned char * buf, int len) {
+int fs_write(int inode, unsigned char * buf, int len, int offset) {
 	if (inode_table[inode].sector == 0) {
 		return -1;
 	}		
+	if (fs_is_dir(inode)) {
+		return -2;
+	}
+
+	if (offset + len > inode_table[inode].filesize) {
+		inode_table[inode].filesize = offset + len;
+	}
+
+	if (inode_table[inode].filesize > BYTES_PER_SECTOR && !(inode_table[inode].flags & INODE_FLAG_INDIRECT)) {
+		inode_table[inode].flags |= INODE_FLAG_INDIRECT;
+		unsigned int data_sector = inode_table[inode].sector;
+		inode_table[inode].sector = _fs_allocate_sector();
+		inode_indirect_t indirect[IINODES_PER_SECTOR];
+		bzero((unsigned char *)indirect, BYTES_PER_SECTOR);
+		indirect[0].sector = data_sector;
+		_fs_write_sector(inode_table[inode].sector, (unsigned char *)indirect);
+	}
+
+	int bytes_to_write = len;
+	unsigned char temp[BYTES_PER_SECTOR];
+	bzero(temp, BYTES_PER_SECTOR);
+
+	if (inode_table[inode].flags & INODE_FLAG_INDIRECT) {
+		inode_indirect_t indirect[IINODES_PER_SECTOR];
+		_fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
+
+		int dest_block = offset / BYTES_PER_SECTOR;
+		if (indirect[dest_block].sector == 0) {
+			indirect[dest_block].sector = _fs_allocate_sector();
+			_fs_write_sector(inode_table[inode].sector, (unsigned char *)indirect);
+		}
+
+		offset = offset % BYTES_PER_SECTOR;
+		bytes_to_write = len < BYTES_PER_SECTOR - offset ? len : BYTES_PER_SECTOR - offset;
+		_fs_read_sector(indirect[dest_block].sector, temp);
+		bcopy(temp + offset, buf, bytes_to_write);
+		_fs_write_sector(indirect[dest_block].sector, temp);
+	} else {
+		_fs_read_sector(inode_table[inode].sector, temp);
+		bcopy(temp + offset, buf, bytes_to_write);
+		_fs_write_sector(inode_table[inode].sector, temp);
+	}
+
+	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
+
+	return bytes_to_write;
+}
+
+int fs_read(int inode, unsigned char * buf, int len, int offset) {
+	if (inode_table[inode].sector == 0) {
+		return -1;
+	}
 	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 1) {
 		return -2;
 	}
 
-	inode_table[inode].filesize = len;
-	
-	// TODO: check if len > sector size
+	unsigned int filesize = inode_table[inode].filesize;
+	unsigned int bytes_to_read = len < filesize - offset ? len : filesize - offset;
+	unsigned char temp[BYTES_PER_SECTOR];
 
-	rk_write(inode_table[inode].sector, buf, len);
-	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
+	if (inode_table[inode].flags & INODE_FLAG_INDIRECT) {
+		inode_indirect_t indirect[IINODES_PER_SECTOR];
+		_fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
+		int src_block = offset / BYTES_PER_SECTOR;
+		offset = offset % BYTES_PER_SECTOR;
+		bytes_to_read = bytes_to_read < BYTES_PER_SECTOR - offset ? bytes_to_read : BYTES_PER_SECTOR - offset;
+		_fs_read_sector(indirect[src_block].sector, temp);
+		bcopy(buf, temp + offset, bytes_to_read);
+	} else {
+		_fs_read_sector(inode_table[inode].sector, temp);
+		bcopy(buf, temp + offset, bytes_to_read);
+	}
 
-	return len;
+	return bytes_to_read;
 }

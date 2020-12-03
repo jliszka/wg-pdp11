@@ -122,11 +122,12 @@ trap.write:
 	br 1$
 
 3$:
+	pop r0
 	push $buf
+	push r0
 	jsr pc, _write
 	add $2, sp
 
-	pop r0
 	jmp ret
 
 trap.flush:

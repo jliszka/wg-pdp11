@@ -4,8 +4,7 @@
 void io_init();
 int read(int nbytes, char * dst);
 unsigned char getch();
-void write(char * str);
-void writeln(char * str);
+int write(int nbytes, char * str);
 void flush();
 void kb_handler();
 void tt_handler();

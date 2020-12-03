@@ -8,7 +8,6 @@
 #define ARGV_BUFSIZE 64
 
 int loader(int code_page) {
-    char buf[64];
     int start_address = 0;
 
     unsigned int base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
@@ -27,13 +26,13 @@ int loader(int code_page) {
         int header_bytes = ptr_read(6, (unsigned char *)header);
 
         if (header_bytes != 6) {
-            writeln("Malformed header");
+            println("Malformed header");
             ret = -1;
             break;
         }
 
         if (header[0] != 1) {
-            writeln("Binary not in correct format");
+            println("Binary not in correct format");
             ret = -1;
             break;
         }
@@ -52,15 +51,6 @@ int loader(int code_page) {
             start_address = address;
         }
         int bytes_read = ptr_read(byte_count, (unsigned char *)(address - start_address + base_address));
-
-        /*
-        write("Copied ");
-        write(itoa(10, bytes_read, buf));
-        write("/");
-        write(itoa(10, byte_count, buf));
-        write(" bytes to address ");
-        writeln(itoa(8, address, buf));
-        */
 
         // 3. TODO: validate the checksum
         unsigned char checksum;

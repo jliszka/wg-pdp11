@@ -59,20 +59,17 @@ void io_init()
     kb_enable();
 }
 
-void write(char *str)
+int write(int nbytes, char *str)
 {
-    while (*str)
-    {
-        outbuf[outend] = *str++;
-        outend = (outend + 1) % BUFSIZE;
+    if (outend + nbytes > outptr + BUFSIZE) {
+        nbytes = outptr + BUFSIZE - outend;
     }
-}
-
-void writeln(char *str)
-{
-    write(str);
-    write("\r\n");
-    flush();
+    int len = nbytes;
+    while (nbytes-- > 0)
+    {
+        outbuf[outend++ % BUFSIZE] = *str++;
+    }
+    return len;
 }
 
 int read(int nbytes, char *dst)
@@ -119,22 +116,21 @@ void kb_handler()
 
     if (c == DEL) {
         if (inend > 0) {
-            outbuf[(outend++)%BUFSIZE] = '\b';
-            outbuf[(outend++)%BUFSIZE] = ' ';
-            outbuf[(outend++)%BUFSIZE] = '\b';
+            outbuf[outend++ % BUFSIZE] = '\b';
+            outbuf[outend++ % BUFSIZE] = ' ';
+            outbuf[outend++ % BUFSIZE] = '\b';
             inend--;
         }
     } else if (c == ESC) {
         ; // Don't echo or store escape codes (e.g., arrow keys)
     } else if (c == '\r') {
-        outbuf[(outend++)%BUFSIZE] = '\r';
-        outbuf[(outend++)%BUFSIZE] = '\n';        
+        outbuf[outend++ % BUFSIZE] = '\r';
+        outbuf[outend++ % BUFSIZE] = '\n';
         inbuf[inend++] = c;
     } else {
-        outbuf[(outend++)%BUFSIZE] = c;
+        outbuf[outend++ % BUFSIZE] = c;
         inbuf[inend++] = c;
     }
-    outend = outend % BUFSIZE;
     tt_enable();
 }
 
@@ -146,11 +142,12 @@ void tt_handler()
     if (outptr == outend)
     {
         tt_disable();
+        outptr = 0;
+        outend = 0;
     }
     else
     {
-        *xbuf = outbuf[outptr];
-        outptr = (outptr + 1) % BUFSIZE;
+        *xbuf = outbuf[outptr++ % BUFSIZE];
     }
 }
 

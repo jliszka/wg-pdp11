@@ -48,7 +48,8 @@ int fs_mount();
 int fs_find_inode(int parent_dir_inode, char * filename);
 int fs_touch(int parent_dir_inode, char * filename);
 int fs_mkdir(int parent_dir_inode, char * dirname);
-int fs_write(int inode, unsigned char * buf, int len);
+int fs_write(int inode, unsigned char * buf, int len, int offset);
+int fs_read(int inode, unsigned char * buf, int len, int offset);
 int fs_read_dir(int dir_inode, int buflen, dirent_t * buf);
 int fs_is_dir(int inode);
 
