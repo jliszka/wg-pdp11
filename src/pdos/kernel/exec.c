@@ -166,6 +166,10 @@ int exec(int code_page, int stack_page, int argc, char *argv[]) {
     // all end up on the kernel stack, not the user stack. But when the program exits,
     // we need the return address and arguments to be set up properly.
     int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
-    return start(argc, (char **)-ARGV_BUFSIZE);
+    int ret = start(argc, (char **)-ARGV_BUFSIZE);
+
+    vm_user_unmap();
+
+    return ret;
 }
 

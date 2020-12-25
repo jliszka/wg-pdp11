@@ -6,7 +6,6 @@
 int help(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
 int halt(int argc, char *argv[]);
-int load(int argc, char *argv[]);
 int save(int argc, char *argv[]);
 int mkfs(int argc, char *argv[]);
 int mount(int argc, char *argv[]);
@@ -33,7 +32,6 @@ typedef struct cmd
 cmd_t commands[NUM_CMDS] = {
     {"help", "usage: help\r\nShows all commands and their usage\r\n", &help},
     {"echo", "usage: echo <arg1> <arg2> <arg3>\r\nEchos input arguments to the output\r\n", &echo},
-    {"load", "usage: load <name>\r\nLoads a program from the tape reader device as the given name\r\n", &load},
     {"save", "usage: save <name>\r\nSaves a program from the tape reader device to the disk with the given name\r\n", &save},
     {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
     {"mkfs", "", &mkfs},
@@ -46,15 +44,11 @@ cmd_t commands[NUM_CMDS] = {
     {"hexdump", "", &hexdump},
 };
 
-unsigned int num_progs = 0;
 typedef struct prog {
     char name[8];
     unsigned int code_page;
     unsigned int stack_page;
 } prog_t;
-
-#define MAX_PROGS 4
-prog_t progs[MAX_PROGS];
 
 unsigned int next_page = 8;
 unsigned int pwd = 0;
@@ -68,11 +62,6 @@ int execute(char * input) {
                 return commands[i].handler(argc, argv);
             }
         }
-        for (int i = 0; i < num_progs; i++) {
-            if (progs[i].code_page != 0 && strncmp(argv[0], progs[i].name, 8) == 0) {
-                return exec(progs[i].code_page, progs[i].stack_page, argc, argv);
-            }
-        }
         return run(argc, argv);
     }
 }
@@ -83,10 +72,6 @@ int execute(char * input) {
 void cmd()
 {
     char buf[256];
-
-    for (int i = 0; i < MAX_PROGS; i++) {
-        progs[i].code_page = 0;
-    }
 
     while (1)
     {
@@ -138,25 +123,6 @@ int echo(int argc, char *argv[])
 //
 int halt(int argc, char *argv[]) {
     asm("halt");
-    return 0;
-}
-
-//
-// Load command
-//
-int load(int argc, char *argv[]) {
-    if (argc < 2) {
-        println("No name specified");
-        return -1;
-    }
-
-    int ret = load_ptr(next_page);
-    if (ret != 0) return ret;
-
-    int p = num_progs++;
-    strncpy(progs[p].name, argv[1], 8);
-    progs[p].code_page = next_page++;
-    progs[p].stack_page = next_page++;
     return 0;
 }
 
@@ -316,8 +282,8 @@ int run(int argc, char *argv[]) {
         return -2;
     }
 
-    int code_page = next_page++;
-    int stack_page = next_page++;
+    int code_page = next_page;
+    int stack_page = next_page+1;
     int ret = load_disk(inode, code_page);
     if (ret != 0) return ret;
 

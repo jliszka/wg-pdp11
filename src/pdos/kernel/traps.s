@@ -32,10 +32,14 @@ buf:
 .=.+bufsize
 
 ttable:
-	.word trap.exit
-	.word trap.read
-	.word trap.write
-	.word trap.flush
+	.word trap.exit		# 0
+	.word trap.read		# 1
+	.word trap.write	# 2
+	.word trap.flush	# 3
+	#.word trap.fopen	# 4
+	#.word trap.fclose	# 5
+	#.word trap.link 	# 6
+	#.word trap.unlink	# 7
 
 trap.exit:
 	# current stack looks like:
@@ -43,12 +47,14 @@ trap.exit:
 	# - r2
 	# - return address for this trap
 	# - PSW for this trap
-	# - return address for jsr to call user main(
+	# - return address for jsr to call user main()
 	# We want to ignore the first 4 and then return, so it'll be as if
 	# the jsr to user main() "returned" into kernel mode.
 	add $8, sp
 	rts pc
 
+# r0: number of bytes to read
+# r1: destination buffer
 trap.read:
 	push r1
 
@@ -89,6 +95,8 @@ trap.read:
 	pop r0				# number of bytes read
 	jmp ret
 
+# r0: number of bytes to write
+# r1: source buffer
 trap.write:
 	tst r0				# nothing to write? return
 	beq ret

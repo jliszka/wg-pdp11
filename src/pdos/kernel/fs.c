@@ -58,13 +58,16 @@ int fs_mkfs() {
 	bzero(buf, BYTES_PER_SECTOR);
 	bzero((unsigned char *)inode_table, BYTES_PER_SECTOR);
 	bzero((unsigned char *)root_dir, BYTES_PER_SECTOR);
-	
+
+	// Zero out the boot sector
 	_fs_write_sector(BOOT_SECTOR, buf);
 
+	// Initialize the free sector map
 	buf[0] = 0xff; // first 8 sectors not available
 	_fs_write_sector(FREE_SECTOR_MAP, buf);
 	buf[0] = 0;
 
+	// Initialize the root dir inode
 	inode_table[0].sector = ROOT_DIR_SECTOR;
 	inode_table[0].filesize = 2 * sizeof(dirent_t);
 	inode_table[0].hard_refcount = 2;
@@ -74,6 +77,7 @@ int fs_mkfs() {
 		_fs_write_sector(INODE_TABLE+i, buf);
 	}
 
+	// Initialize the root directory table
 	root_dir[0].inode = 0;
 	root_dir[0].filename[0] = '.';
 
@@ -146,23 +150,29 @@ int fs_find_inode(int parent_dir_inode, char * filename) {
 }
 
 int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigned char flags) {
+	// Check if the file already exists
 	int existing_inode = _fs_find_inode(parent_dir_inode, parent_dir, filename);
 	if (existing_inode != 0) {
 		return -1;
 	}
 
+	// Find an empty slot in the inode table
 	int new_inode;
 	for (new_inode = parent_dir_inode; new_inode < INODES_PER_SECTOR; new_inode++) {
 		if (inode_table[new_inode].hard_refcount == 0) break;
 	}
+	// Find an empty slot in the parent directory table
 	int next_dirent_idx = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
 
 	parent_dir[next_dirent_idx].inode = new_inode;
 	strncpy(parent_dir[next_dirent_idx].filename, filename, sizeof(parent_dir[next_dirent_idx].filename));
 
+	// Create the new inode
 	bzero((unsigned char *)&(inode_table[new_inode]), sizeof(inode_t));
 	inode_table[new_inode].hard_refcount = 1;
 	inode_table[new_inode].flags = flags;
+
+	// Update parent inode
 	inode_table[parent_dir_inode].filesize += sizeof(dirent_t);
 	inode_table[parent_dir_inode].hard_refcount += 1;
 
@@ -229,10 +239,12 @@ int fs_write(int inode, unsigned char * buf, int len, int offset) {
 		inode_table[inode].sector = _fs_allocate_sector();
 	}
 
+	// Update file size
 	if (offset + len > inode_table[inode].filesize) {
 		inode_table[inode].filesize = offset + len;
 	}
 
+	// Convert this inode to indirect
 	if (inode_table[inode].filesize > BYTES_PER_SECTOR && !(inode_table[inode].flags & INODE_FLAG_INDIRECT)) {
 		inode_table[inode].flags |= INODE_FLAG_INDIRECT;
 		unsigned int data_sector = inode_table[inode].sector;
@@ -248,21 +260,25 @@ int fs_write(int inode, unsigned char * buf, int len, int offset) {
 	bzero(temp, BYTES_PER_SECTOR);
 
 	if (inode_table[inode].flags & INODE_FLAG_INDIRECT) {
+		// Indirect case
 		inode_indirect_t indirect[IINODES_PER_SECTOR];
 		_fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
 
+		// Allocate a sector if needed
 		int dest_block = offset / BYTES_PER_SECTOR;
 		if (indirect[dest_block].sector == 0) {
 			indirect[dest_block].sector = _fs_allocate_sector();
 			_fs_write_sector(inode_table[inode].sector, (unsigned char *)indirect);
 		}
 
+		// Write as many bytes as we can to the sector. Caller might need to try again.
 		offset = offset % BYTES_PER_SECTOR;
 		bytes_to_write = len < BYTES_PER_SECTOR - offset ? len : BYTES_PER_SECTOR - offset;
 		_fs_read_sector(indirect[dest_block].sector, temp);
 		bcopy(temp + offset, buf, bytes_to_write);
 		_fs_write_sector(indirect[dest_block].sector, temp);
 	} else {
+		// Direct case
 		_fs_read_sector(inode_table[inode].sector, temp);
 		bcopy(temp + offset, buf, bytes_to_write);
 		_fs_write_sector(inode_table[inode].sector, temp);
@@ -289,14 +305,17 @@ int fs_read(int inode, unsigned char * buf, int len, int offset) {
 	unsigned char temp[BYTES_PER_SECTOR];
 
 	if (inode_table[inode].flags & INODE_FLAG_INDIRECT) {
+		// Indirect case
 		inode_indirect_t indirect[IINODES_PER_SECTOR];
 		_fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
 		int src_block = offset / BYTES_PER_SECTOR;
 		offset = offset % BYTES_PER_SECTOR;
+		// Read up to the end of the sector. Caller might need to try again.
 		bytes_to_read = bytes_to_read < BYTES_PER_SECTOR - offset ? bytes_to_read : BYTES_PER_SECTOR - offset;
 		_fs_read_sector(indirect[src_block].sector, temp);
 		bcopy(buf, temp + offset, bytes_to_read);
 	} else {
+		// Direct case
 		_fs_read_sector(inode_table[inode].sector, temp);
 		bcopy(buf, temp + offset, bytes_to_read);
 	}

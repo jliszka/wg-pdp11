@@ -79,3 +79,13 @@ void vm_user_init(unsigned int code_block_number, unsigned int stack_block_numbe
     user_par[7] = stack_block_number;
     user_pdr[7] = PDR_READ_WRITE;
 }
+
+void vm_user_unmap() {
+    volatile int * user_par = (int *)USER_PAR;
+    volatile int * user_pdr = (int *)USER_PDR;
+
+    for (int i = 0; i < 8; i++) {
+        user_par[i] = 0;
+        user_pdr[i] = 0;
+    }
+}
