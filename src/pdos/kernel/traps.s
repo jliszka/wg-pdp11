@@ -126,7 +126,7 @@ trap.write:
 	push $buf
 	push r0
 	jsr pc, _write
-	add $2, sp
+	add $4, sp
 
 	jmp ret
 

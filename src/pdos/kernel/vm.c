@@ -37,6 +37,9 @@ void vm_init() {
     kernel_par[1] = vm_page_block_number(1);
     kernel_pdr[1] = PDR_READ_WRITE;
 
+    kernel_par[2] = vm_page_block_number(2);
+    kernel_pdr[2] = PDR_READ_WRITE;
+
     kernel_par[6] = vm_page_block_number(6);
     kernel_pdr[6] = PDR_READ_WRITE;
 

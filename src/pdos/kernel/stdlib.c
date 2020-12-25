@@ -1,13 +1,7 @@
 #include "stdlib.h"
 #include "libasio.h"
 
-char * itoa(int radix, int n, char * dst) {
-    if (n < 0) {
-        *dst = '-';
-        itoa(radix, -n, dst+1);
-        return dst;
-    }
-
+char * uitoa(int radix, int n, char * dst) {
     if (n == 0) {
         dst[0] = '0';
         dst[1] = 0;
@@ -18,7 +12,8 @@ char * itoa(int radix, int n, char * dst) {
     // (least significant digit first)
     char * p = dst;
     while (n > 0) {
-        *p++ = '0' + (n % radix);
+        int k = n % radix;
+        *p++ = k > 9 ? 'a' + (k-10) : '0' + k;
         n = n / radix;
     }
     *p = 0;
@@ -32,6 +27,15 @@ char * itoa(int radix, int n, char * dst) {
     }
 
     return dst;
+}
+
+char * itoa(int radix, int n, char * dst) {
+    if (n < 0) {
+        *dst = '-';
+        uitoa(radix, -n, dst+1);
+        return dst;
+    }
+    return uitoa(radix, n, dst);
 }
 
 int strncmp(char * a, char * b, int n)
@@ -108,7 +112,7 @@ void print(char * str) {
 
 void println(char * str) {
     print(str);
-    write(3, "\r\n");
+    print("\r\n");
     flush();
 }
 

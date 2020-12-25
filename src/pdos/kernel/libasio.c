@@ -64,6 +64,11 @@ int write(int nbytes, char *str)
     if (outend + nbytes > outptr + BUFSIZE) {
         nbytes = outptr + BUFSIZE - outend;
     }
+    if (nbytes == 0) {
+        flush();
+        return 0;
+    }
+
     int len = nbytes;
     while (nbytes-- > 0)
     {
@@ -156,10 +161,9 @@ int ptr_status = 0;
 unsigned char ptr_char;
 int ptr_has_next()
 {
-    if (ptr_status == 1)
+    if (ptr_status == 1) {
         return 1;
-    if (ptr_status == -1)
-        return 0;
+    }
     volatile unsigned int *xcsr = (unsigned int *)PTR_STATUS;
     volatile unsigned char *xbuf = (unsigned char *)PTR_DATA;
     *xcsr |= PTR_ENABLE;
@@ -167,7 +171,7 @@ int ptr_has_next()
     {
         if (*xcsr & PTR_ERROR)
         {
-            ptr_status = -1;
+            ptr_status = 0;
             return 0;
         }
     }

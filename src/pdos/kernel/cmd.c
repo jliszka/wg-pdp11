@@ -15,6 +15,8 @@ int touch(int argc, char *argv[]);
 int cd(int argc, char *argv[]);
 int ls(int argc, char *argv[]);
 int cat(int argc, char *argv[]);
+int run(int argc, char *argv[]);
+int hexdump(int argc, char *argv[]);
 
 
 //
@@ -41,6 +43,7 @@ cmd_t commands[NUM_CMDS] = {
     {"cd", "", &cd},
     {"ls", "", &ls},
     {"cat", "", &cat},
+    {"hexdump", "", &hexdump},
 };
 
 unsigned int num_progs = 0;
@@ -53,7 +56,7 @@ typedef struct prog {
 #define MAX_PROGS 4
 prog_t progs[MAX_PROGS];
 
-unsigned int next_page = 10;
+unsigned int next_page = 8;
 unsigned int pwd = 0;
 
 int execute(char * input) {
@@ -70,7 +73,7 @@ int execute(char * input) {
                 return exec(progs[i].code_page, progs[i].stack_page, argc, argv);
             }
         }
-        println("Unknown command");
+        return run(argc, argv);
     }
 }
 
@@ -147,7 +150,7 @@ int load(int argc, char *argv[]) {
         return -1;
     }
 
-    int ret = loader(next_page);
+    int ret = load_ptr(next_page);
     if (ret != 0) return ret;
 
     int p = num_progs++;
@@ -182,6 +185,7 @@ int save(int argc, char *argv[]) {
     if (remaining > 0) {
         fs_write(inode, buf, remaining, pos - remaining);
     }
+    return pos;
 }
 
 int mkfs(int argc, char *argv[]) {
@@ -258,4 +262,64 @@ int cat(int argc, char *argv[]) {
         pos += n;
         n = fs_read(inode, buf, buflen, pos);
     } while (n > 0);
+    return 0;
+}
+
+int hexdump(int argc, char *argv[]) {
+    if (argc < 2) {
+        println("Not enough arguments");
+        return -1;
+    }
+    int inode = fs_find_inode(pwd, argv[1]);
+    if (inode == 0) {
+        println("File not found");
+        return -1;
+    }
+    if (fs_is_dir(inode)) {
+        println("Not a regular file");
+        return -2;
+    }
+    int inbuflen = 8;
+    unsigned int inbuf[inbuflen];
+    unsigned char outbuf[16];
+
+    println(itoa(10, inode, outbuf));
+
+    int pos = 0;
+    int n = fs_read(inode, (unsigned char *)inbuf, inbuflen*2, pos);
+    do {
+        print(itoa(16, pos, outbuf));
+        print(" ");
+        for (int i = 0; i < (n+1)/2; i++) {
+            print(uitoa(8, inbuf[i], outbuf));
+            print(" ");
+        }
+        pos += n;
+        n = fs_read(inode, (unsigned char *)inbuf, inbuflen*2, pos);
+        println("");
+    } while (n > 0);
+    return 0;
+}
+
+int run(int argc, char *argv[]) {
+    if (argc < 1) {
+        println("Not enough arguments");
+        return -1;
+    }
+    int inode = fs_find_inode(pwd, argv[0]);
+    if (inode == 0) {
+        println("File not found");
+        return -1;
+    }
+    if (fs_is_dir(inode)) {
+        println("Not a regular file");
+        return -2;
+    }
+
+    int code_page = next_page++;
+    int stack_page = next_page++;
+    int ret = load_disk(inode, code_page);
+    if (ret != 0) return ret;
+
+    return exec(code_page, stack_page, argc, argv);
 }

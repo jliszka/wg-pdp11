@@ -1,6 +1,7 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
+char * uitoa(int radix, int n, char * dst);
 char * itoa(int radix, int n, char * dst);
 int strncmp(char * a, char * b, int n);
 char * strncpy(char * dst, char * src, int n);

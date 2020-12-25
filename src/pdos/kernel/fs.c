@@ -87,7 +87,7 @@ int fs_mkfs() {
 }
 
 int fs_is_dir(int inode) {
-	if (inode_table[inode].sector == 0) {
+	if (inode_table[inode].hard_refcount == 0) {
 		return 0;
 	}		
 	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 0) {
@@ -153,7 +153,7 @@ int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigne
 
 	int new_inode;
 	for (new_inode = parent_dir_inode; new_inode < INODES_PER_SECTOR; new_inode++) {
-		if (inode_table[new_inode].sector == 0) break;
+		if (inode_table[new_inode].hard_refcount == 0) break;
 	}
 	int next_dirent_idx = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
 
@@ -161,7 +161,6 @@ int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigne
 	strncpy(parent_dir[next_dirent_idx].filename, filename, sizeof(parent_dir[next_dirent_idx].filename));
 
 	bzero((unsigned char *)&(inode_table[new_inode]), sizeof(inode_t));
-	inode_table[new_inode].sector = _fs_allocate_sector();
 	inode_table[new_inode].hard_refcount = 1;
 	inode_table[new_inode].flags = flags;
 	inode_table[parent_dir_inode].filesize += sizeof(dirent_t);
@@ -219,11 +218,15 @@ int fs_mkdir(int parent_dir_inode, char * dirname) {
 }
 
 int fs_write(int inode, unsigned char * buf, int len, int offset) {
-	if (inode_table[inode].sector == 0) {
+	if (inode_table[inode].hard_refcount == 0) {
 		return -1;
-	}		
+	}
 	if (fs_is_dir(inode)) {
 		return -2;
+	}
+
+	if (inode_table[inode].sector == 0) {
+		inode_table[inode].sector = _fs_allocate_sector();
 	}
 
 	if (offset + len > inode_table[inode].filesize) {
@@ -271,11 +274,14 @@ int fs_write(int inode, unsigned char * buf, int len, int offset) {
 }
 
 int fs_read(int inode, unsigned char * buf, int len, int offset) {
-	if (inode_table[inode].sector == 0) {
+	if (inode_table[inode].hard_refcount == 0) {
 		return -1;
 	}
-	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 1) {
+	if (inode_table[inode].sector == 0) {
 		return -2;
+	}
+	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 1) {
+		return -3;
 	}
 
 	unsigned int filesize = inode_table[inode].filesize;
