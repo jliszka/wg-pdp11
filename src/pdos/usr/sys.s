@@ -7,27 +7,24 @@
 
 .globl _exit
 _exit:
-	mov 2(sp), r0
+	mov sp, r5
+	add $2, r5
 	trap 0
 1$:
 	br 1$  	# unreachable
 
 .globl _read
 _read:
-	mov 2(sp), r0
-	mov 4(sp), r1
-
+	mov sp, r5
+	add $2, r5
 	trap 1
-
 	rts pc
 
 .globl _write
 _write:
-	mov 2(sp), r0
-	mov 4(sp), r1
-
+	mov sp, r5
+	add $2, r5
 	trap 2
-
 	rts pc
 
 .globl _flush

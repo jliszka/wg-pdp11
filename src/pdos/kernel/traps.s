@@ -38,10 +38,15 @@ ttable:
 	.word trap.flush	# 3
 	#.word trap.fopen	# 4
 	#.word trap.fclose	# 5
-	#.word trap.link 	# 6
-	#.word trap.unlink	# 7
+	#.word trap.fseek	# 6
+	#.word trap.link 	# 7
+	#.word trap.unlink	# 8
 
+# r5 points to user-space stack:
+# r5 -> exit code
 trap.exit:
+    mfpi (r5)+
+    pop r0
 	# current stack looks like:
 	# - r3
 	# - r2
@@ -53,10 +58,13 @@ trap.exit:
 	add $8, sp
 	rts pc
 
-# r0: number of bytes to read
-# r1: destination buffer
+# r5 points to user-space stack:
+#       destination buffer
+# r5 -> number of bytes to read
 trap.read:
-	push r1
+	mfpi (r5)+			# number of bytes to read
+	pop r0
+	mfpi (r5)+			# destination buffer (popped later)
 
 	push $buf
 	push r0
@@ -95,9 +103,15 @@ trap.read:
 	pop r0				# number of bytes read
 	jmp ret
 
-# r0: number of bytes to write
-# r1: source buffer
+# r5 points to user-space stack:
+#       source buffer
+# r5 -> number of bytes to write
 trap.write:
+    mfpi (r5)+          # number of bytes to wrote
+    pop r0
+    mfpi (r5)+          # source buffer
+    pop r1
+
 	tst r0				# nothing to write? return
 	beq ret
 
