@@ -26,9 +26,9 @@ void vm_init() {
 
     for (int i = 0; i < 8; i++) {
         kernel_par[i] = 0;
-        kernel_pdr[i] = 0;
+        kernel_pdr[i] = PDR_NON_RESIDENT;
         user_par[i] = 0;
-        user_pdr[i] = 0;
+        user_pdr[i] = PDR_NON_RESIDENT;
     }
 
     kernel_par[0] = vm_page_block_number(0);
@@ -68,10 +68,7 @@ void vm_user_init(unsigned int code_block_number, unsigned int stack_block_numbe
     volatile int * user_par = (int *)USER_PAR;
     volatile int * user_pdr = (int *)USER_PDR;
 
-    for (int i = 0; i < 8; i++) {
-        user_par[i] = 0;
-        user_pdr[i] = 0;
-    }
+    vm_user_unmap();
 
     user_par[1] = code_block_number;
     user_pdr[1] = PDR_READ_WRITE;
@@ -86,6 +83,6 @@ void vm_user_unmap() {
 
     for (int i = 0; i < 8; i++) {
         user_par[i] = 0;
-        user_pdr[i] = 0;
+        user_pdr[i] = PDR_NON_RESIDENT;
     }
 }

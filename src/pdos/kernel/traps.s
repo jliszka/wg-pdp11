@@ -2,9 +2,9 @@
 
 .include "macros.s"
 
-.globl _read
-.globl _write
-.globl _flush
+.globl _tty_read
+.globl _tty_write
+.globl _tty_flush
 
 .text
 .even
@@ -60,7 +60,7 @@ trap.read:
 
 	push $buf
 	push r0
-	jsr pc, _read		# return value (r0): how many bytes read
+	jsr pc, _tty_read	# return value (r0): how many bytes read
 	add $4, sp
 
 	pop r1
@@ -133,13 +133,13 @@ trap.write:
 	pop r0
 	push $buf
 	push r0
-	jsr pc, _write
+	jsr pc, _tty_write
 	add $4, sp
 
 	jmp ret
 
 trap.flush:
-	jsr pc, _flush
+	jsr pc, _tty_flush
 	jmp ret
 
 

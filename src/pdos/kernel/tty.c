@@ -1,4 +1,4 @@
-#include "libasio.h"
+#include "tty.h"
 
 #define KBV 060            // keyboard (TTI) interrupt vector
 #define KBS 0177560        // keyboard status register
@@ -11,12 +11,6 @@
 #define TTD 0177566        // terminal data buffer
 #define TT_READY (1 << 7)  // terminal ready bit
 #define TT_ENABLE (1 << 6) // terminal interrupt enable bit
-
-#define PTR_STATUS 0177550 // paper tape reader status word
-#define PTR_DATA 0177552   // paper tape reader data buffer
-#define PTR_ENABLE 1
-#define PTR_READY (1 << 7)
-#define PTR_ERROR (1 << 15)
 
 #define DEL 0177
 #define ESC 033
@@ -45,7 +39,7 @@ volatile unsigned int inptr = 0;
 #define tt_disable() \
     *((volatile unsigned int *)TTS) &= ~TT_ENABLE;
 
-void io_init()
+void tty_init()
 {
     outend = 0;
     outptr = 0;
@@ -59,13 +53,13 @@ void io_init()
     kb_enable();
 }
 
-int write(int nbytes, char *str)
+int tty_write(int nbytes, char *str)
 {
     if (outend + nbytes > outptr + BUFSIZE) {
         nbytes = outptr + BUFSIZE - outend;
     }
     if (nbytes == 0) {
-        flush();
+        tty_flush();
         return 0;
     }
 
@@ -77,7 +71,7 @@ int write(int nbytes, char *str)
     return len;
 }
 
-int read(int nbytes, char *dst)
+int tty_read(int nbytes, char *dst)
 {
     int len = 0;
     while (inbuf[inend-1] != '\r')
@@ -95,7 +89,7 @@ int read(int nbytes, char *dst)
     return len+1;
 }
 
-unsigned char getch() 
+unsigned char tty_getch() 
 {
     while (inptr == inend) 
     {
@@ -104,7 +98,7 @@ unsigned char getch()
     return inbuf[inptr++];
 }
 
-void flush()
+void tty_flush()
 {
     tt_enable();
     while (outptr != outend)
@@ -156,52 +150,3 @@ void tt_handler()
     }
 }
 
-// Paper tape reader interface
-int ptr_status = 0;
-unsigned char ptr_char;
-int ptr_has_next()
-{
-    if (ptr_status == 1) {
-        return 1;
-    }
-    volatile unsigned int *xcsr = (unsigned int *)PTR_STATUS;
-    volatile unsigned char *xbuf = (unsigned char *)PTR_DATA;
-    *xcsr |= PTR_ENABLE;
-    while ((*xcsr & PTR_READY) == 0)
-    {
-        if (*xcsr & PTR_ERROR)
-        {
-            ptr_status = 0;
-            return 0;
-        }
-    }
-    ptr_char = *xbuf;
-    ptr_status = 1;
-    return 1;
-}
-
-unsigned char ptr_next()
-{
-    ptr_status = 0;
-    return ptr_char;
-}
-
-int ptr_read(int bytes, unsigned char *dst)
-{
-    volatile unsigned int *xcsr = (unsigned int *)PTR_STATUS;
-    volatile unsigned char *xbuf = (unsigned char *)PTR_DATA;
-    int byte_count;
-    for (byte_count = 0; byte_count < bytes; byte_count++)
-    {
-        *xcsr |= PTR_ENABLE;
-        while ((*xcsr & PTR_READY) == 0)
-        {
-            if (*xcsr & PTR_ERROR)
-            {
-                return byte_count;
-            }
-        }
-        *dst++ = *xbuf;
-    }
-    return byte_count;
-}

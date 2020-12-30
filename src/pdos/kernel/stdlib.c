@@ -1,5 +1,5 @@
 #include "stdlib.h"
-#include "libasio.h"
+#include "tty.h"
 
 char * uitoa(int radix, int n, char * dst) {
     if (n == 0) {
@@ -106,13 +106,13 @@ void print(char * str) {
     int len = strlen(str)+1;
     int written = 0;
     do {
-        written += write(len - written, str + written);
+        written += tty_write(len - written, str + written);
     } while (written < len);
 }
 
 void println(char * str) {
     print(str);
     print("\r\n");
-    flush();
+    tty_flush();
 }
 

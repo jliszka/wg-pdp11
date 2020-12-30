@@ -1,4 +1,5 @@
-#include "libasio.h"
+#include "tty.h"
+#include "ptr.h"
 #include "stdlib.h"
 #include "exec.h"
 #include "fs.h"
@@ -78,9 +79,9 @@ void cmd()
         print("pdos:");
         print(itoa(10, pwd, buf));
         print("> ");
-        flush();
+        tty_flush();
 
-        read(256, buf);
+        tty_read(256, buf);
         int ret = execute(buf);
         print(itoa(10, ret, buf));
         print(") ");
@@ -113,8 +114,7 @@ int echo(int argc, char *argv[])
         print(argv[i]);
         print(" ");
     }
-    print("\r\n");
-    flush();
+    println("");
     return 0;
 }
 
@@ -222,8 +222,8 @@ int cat(int argc, char *argv[]) {
     do {
         int written = 0;
         do {
-            written += write(n - written, buf + written);
-            flush();
+            written += tty_write(n - written, buf + written);
+            tty_flush();
         } while (written < n);
         pos += n;
         n = fs_read(inode, buf, buflen, pos);

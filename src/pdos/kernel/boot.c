@@ -1,4 +1,4 @@
-#include "libasio.h"
+#include "tty.h"
 #include "stdlib.h"
 #include "vm.h"
 #include "fs.h"
@@ -7,7 +7,7 @@ extern void cmd();
 
 int main()
 {
-    io_init();
+    tty_init();
     vm_init();
     fs_init();
 
