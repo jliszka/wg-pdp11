@@ -9,21 +9,29 @@
 .text
 .even
 
+# The syscall stubs in sys.s set it up so that r5 points to the user stack.
+# Traps handlers can access the first argument as 4(r5), the second as 6(r5), etc.
+#     - arg3
+#     - arg2
+#     - arg1
+#     - return address for call to syscall stub
+# r5 -> old r5
 .globl ktrap
 ktrap:
-	push r2
-	push r3
-	mov 4(sp), r2		# return address
-	sub $2, r2			# subtract 2 to get the trap instruction
-	mfpi (r2)			# read the trap instruction (from previous address space)
-	pop r2
-	movb r2, r3			# get the low byte of the instruction to determine the trap number
-	asl r3				# multiply by 2...
-	jmp @ttable(r3)		# and address into the jump table
+	mov (sp), r0		# return address for the trap call (in user address space)
+	sub $2, r0			# subtract 2 to get the address of the trap instruction
+	mfpi (r0)			# read the trap instruction (from previous instruction space = user)
+	pop r0
+	bic $0177400, r0	# get the low byte of the instruction to determine the trap number
+	asl r0				# multiply by 2...
+
+    push r2
+    push r3
+	jmp @ttable(r0)		# and address into the jump table
 
 ret:
-	pop r3
-	pop r2
+    pop r3
+    pop r2
 	rti
 
 .even
@@ -39,21 +47,23 @@ ttable:
 	#.word trap.fopen	# 4
 	#.word trap.fclose	# 5
 	#.word trap.fseek	# 6
-	#.word trap.link 	# 7
-	#.word trap.unlink	# 8
+    #.word trap.fread   # 7
+    #.word trap.fwrite  # 8
+	#.word trap.link 	# 9
+	#.word trap.unlink	# 10
 
 # r5 points to user-space stack:
 # r5 -> exit code
 trap.exit:
-    mfpi (r5)+
+    mfpi 4(r5)
     pop r0
 	# current stack looks like:
-	# - r3
-	# - r2
-	# - return address for this trap
-	# - PSW for this trap
-	# - return address for jsr to call user main()
-	# We want to ignore the first 4 and then return, so it'll be as if
+    #     - return address for jsr to call user main()
+    #     - PSW for this trap
+    #     - return address for this trap
+    #     - r2
+    # sp -> r3
+	# We want to ignore the first 2 and then return, so it'll be as if
 	# the jsr to user main() "returned" into kernel mode.
 	add $8, sp
 	rts pc
@@ -62,17 +72,18 @@ trap.exit:
 #       destination buffer
 # r5 -> number of bytes to read
 trap.read:
-	mfpi (r5)+			# number of bytes to read
+	mfpi 4(r5)			# number of bytes to read
 	pop r0
-	mfpi (r5)+			# destination buffer (popped later)
 
 	push $buf
 	push r0
 	jsr pc, _tty_read	# return value (r0): how many bytes read
 	add $4, sp
 
-	pop r1
 	push r0				# save original value of r0
+
+    mfpi 6(r5)          # destination buffer
+    pop r1
 
 	mov $buf, r2
 	bit r1, $1			# check if the address is even
@@ -107,9 +118,9 @@ trap.read:
 #       source buffer
 # r5 -> number of bytes to write
 trap.write:
-    mfpi (r5)+          # number of bytes to wrote
+    mfpi 4(r5)          # number of bytes to wrote
     pop r0
-    mfpi (r5)+          # source buffer
+    mfpi 6(r5)          # source buffer
     pop r1
 
 	tst r0				# nothing to write? return
