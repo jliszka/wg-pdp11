@@ -1,6 +1,6 @@
 #############################################################################*
 #####
-##### crt0.s contains the initial boot routines for C programs
+##### crtboot.s contains the initial boot routines for the bootstrap loader C program
 #####
 ######
 
@@ -9,6 +9,12 @@
 .globl _main
 .globl ___main
 .globl _start
+
+# The inode number of the kernel program. This gets overwritten
+# by the mbr command when it installs the bootloader.
+.globl _kernel_inode
+_kernel_inode:
+.word 0
 
 #############################################################################*
 ##### _start: initialize stack pointer,
@@ -19,15 +25,11 @@ _start:
     mov $0160000,sp
     clr r0
 L_0:
-    # Uncomment these to add fake interrupt handlers for debugging
-    # mov r0, (r0)
-    # add $060000, (r0)+   # will trap to 060000 + vector address
     clr (r0)+
     cmp r0, $0400
     bne L_0
     jsr pc,_main
     halt
-    br _start
 
 #############################################################################*
 ##### ___main: called by C main() function. Currently does nothing

@@ -1,6 +1,6 @@
+#include "fs.h"
 #include "rk.h"
 #include "stdlib.h"
-#include "fs.h"
 
 /**
  Disk geometry:
@@ -20,29 +20,9 @@
 
 **/
 
-#define INODE_FLAG_INDIRECT 1
-#define INODE_FLAG_DIRECTORY 2
-#define INODE_FLAG_EXECUTABLE 3
-
-#define BYTES_PER_SECTOR 512
-#define MAX_SECTOR 4096
-#define INODES_PER_SECTOR (BYTES_PER_SECTOR / sizeof(inode_t))
-#define IINODES_PER_SECTOR (BYTES_PER_SECTOR / sizeof(inode_indirect_t))
-#define DIRENTS_PER_SECTOR (BYTES_PER_SECTOR / sizeof(dirent_t))
-
-#define BOOT_SECTOR 0
-#define FREE_SECTOR_MAP 1
-#define INODE_TABLE 2
-#define INODE_TABLE_SIZE 5
-#define ROOT_DIR_SECTOR 7
-#define ROOT_DIR_INODE 0
-
 inode_t inode_table[INODES_PER_SECTOR];
 dirent_t root_dir[DIRENTS_PER_SECTOR];
 dirent_t dir[BYTES_PER_SECTOR];
-
-#define _fs_read_sector(sector, buf) rk_read(sector, buf, BYTES_PER_SECTOR)
-#define _fs_write_sector(sector, buf) rk_write(sector, buf, BYTES_PER_SECTOR) 
 
 int fs_init() {
 }
@@ -138,7 +118,7 @@ int _fs_find_inode(int parent_dir_inode, dirent_t * parent_dir, char * filename)
 			return parent_dir[i].inode;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 int fs_find_inode(int parent_dir_inode, char * filename) {
@@ -152,7 +132,7 @@ int fs_find_inode(int parent_dir_inode, char * filename) {
 int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigned char flags) {
 	// Check if the file already exists
 	int existing_inode = _fs_find_inode(parent_dir_inode, parent_dir, filename);
-	if (existing_inode != 0) {
+	if (existing_inode >= 0) {
 		return -1;
 	}
 

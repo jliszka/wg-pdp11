@@ -1,5 +1,5 @@
 #include "tty.h"
-#include "stdlib.h"
+#include "stdio.h"
 #include "vm.h"
 #include "fs.h"
 

@@ -1,0 +1,25 @@
+.title Boot from disk
+
+rkba = 0177410
+
+.asect
+
+
+; Load the bootstrap program from sector 0 of the disk to address 01000
+; and start executing. The first word of the program is the inode number
+; of the kernel program, so we have to start executing at 01002.
+
+.=1002
+boot:
+
+.=2000
+start:
+	mov #rkba, r0
+	mov #1000, (r0)  ; destination address
+	mov #-400, -(r0) ; word count
+	mov #5, -(r0)    ; begin reading
+wait:
+	tstb (r0)
+	bpl wait
+
+	jmp boot

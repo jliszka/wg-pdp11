@@ -1,6 +1,7 @@
 
 #include "exec.h"
 #include "stdlib.h"
+#include "stdio.h"
 #include "ptr.h"
 #include "vm.h"
 #include "fs.h"

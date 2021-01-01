@@ -38,6 +38,23 @@ char * itoa(int radix, int n, char * dst) {
     return uitoa(radix, n, dst);
 }
 
+int atoi(char * str) {
+    int ret = 0;
+    int sign = 1;
+    if (*str == '0') {
+        return 0;
+    }
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    }
+    while ('0' <= *str && *str <= '9') {
+        ret *= 10;
+        ret += *str++ - '0';
+    }
+    return ret * sign;
+}
+
 int strncmp(char * a, char * b, int n)
 {
     // Compare the first n characters and the \0
@@ -100,19 +117,5 @@ int strlen(char * str) {
     int len = 0;
     while (*str++) len++;
     return len;
-}
-
-void print(char * str) {
-    int len = strlen(str)+1;
-    int written = 0;
-    do {
-        written += tty_write(len - written, str + written);
-    } while (written < len);
-}
-
-void println(char * str) {
-    print(str);
-    print("\r\n");
-    tty_flush();
 }
 

@@ -1,8 +1,10 @@
 #include "tty.h"
 #include "ptr.h"
 #include "stdlib.h"
+#include "stdio.h"
 #include "exec.h"
 #include "fs.h"
+#include "rk.h"
 
 int help(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
@@ -17,6 +19,7 @@ int ls(int argc, char *argv[]);
 int cat(int argc, char *argv[]);
 int run(int argc, char *argv[]);
 int hexdump(int argc, char *argv[]);
+int mbr(int argc, char *argv[]);
 
 
 //
@@ -43,6 +46,7 @@ cmd_t commands[NUM_CMDS] = {
     {"ls", "", &ls},
     {"cat", "", &cat},
     {"hexdump", "", &hexdump},
+    {"mbr", "usage: mbr <bootstrap> <kernel>\r\nCopies bootstrap program to disk boot sector, pointing to kernel program\r\n", &mbr},
 };
 
 typedef struct prog {
@@ -132,7 +136,7 @@ int save(int argc, char *argv[]) {
         return -1;
     }
     int inode = fs_find_inode(pwd, argv[1]);
-    if (inode == 0) {
+    if (inode < 0) {
         inode = fs_touch(pwd, argv[1]);
     } else if (fs_is_dir(inode)) {
         println("File is a directory");
@@ -207,7 +211,7 @@ int cat(int argc, char *argv[]) {
         return -1;
     }
     int inode = fs_find_inode(pwd, argv[1]);
-    if (inode == 0) {
+    if (inode < 0) {
         println("File not found");
         return -1;
     }
@@ -237,7 +241,7 @@ int hexdump(int argc, char *argv[]) {
         return -1;
     }
     int inode = fs_find_inode(pwd, argv[1]);
-    if (inode == 0) {
+    if (inode < 0) {
         println("File not found");
         return -1;
     }
@@ -273,7 +277,7 @@ int run(int argc, char *argv[]) {
         return -1;
     }
     int inode = fs_find_inode(pwd, argv[0]);
-    if (inode == 0) {
+    if (inode < 0) {
         println("File not found");
         return -1;
     }
@@ -289,3 +293,60 @@ int run(int argc, char *argv[]) {
 
     return exec(code_page, stack_page, argc, argv);
 }
+
+int mbr(int argc, char *argv[]) {
+    if (argc < 3) {
+        println("Not enough arguments");
+        return -1;
+    }
+
+    // Identify the inode of the bootstrap program
+    int boot_inode = fs_find_inode(pwd, argv[1]);
+    if (boot_inode < 0) {
+        println("File not found");
+        return -2;
+    } else if (fs_is_dir(boot_inode)) {
+        println("File is a directory");
+        return -3;
+    }
+
+    // Identify the inode of the kernel program
+    int kernel_inode = fs_find_inode(pwd, argv[2]);
+    if (kernel_inode < 0) {
+        println("File not found");
+        return -2;
+    } else if (fs_is_dir(kernel_inode)) {
+        println("File is a directory");
+        return -3;
+    }
+
+    // Buffer to hold the boot sector
+    int boot_sector[BYTES_PER_SECTOR / 2];
+    bzero((unsigned char *)boot_sector, BYTES_PER_SECTOR);
+
+    // Read the bootstrap program from disk. It will be at most one sector (512 bytes).
+    int header[3];
+    int header_bytes = fs_read(boot_inode, (unsigned char *)header, 6, 0);
+
+    if (header_bytes != 6) {
+        println("Malformed header");
+        return -4;
+    }
+
+    if (header[0] != 1) {
+        println("Binary not in correct format");
+        return -5;
+    }
+
+    int byte_count = header[1];
+    fs_read(boot_inode, (unsigned char *)boot_sector, byte_count - 6, 6);
+
+    // Overwrite the first byte of the bootstrap program with the inode of the kernel program
+    boot_sector[0] = kernel_inode;
+
+    // Write it to the boot sector.
+    rk_write(BOOT_SECTOR, (unsigned char *)boot_sector, BYTES_PER_SECTOR);
+
+    return kernel_inode;
+}
+

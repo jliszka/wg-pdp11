@@ -1,6 +1,8 @@
 #ifndef FS_H
 #define FS_H
 
+#include "fs_defs.h"
+
 /**
  Disk geometry:
   200 cylinders
@@ -18,29 +20,6 @@
  Sector 7: root directory
 
 **/
-
-// 8 bytes. 512/8 = 64 inodes per sector
-typedef struct {
-	unsigned int sector;
-	unsigned int filesize;
-	unsigned char hard_refcount;
-	unsigned char soft_refcount;
-	unsigned char flags;
-	unsigned char unused;
-} inode_t;
-
-// 8 bytes. 512/4 = 128 indirect references per sector
-// max filesize = 128 * 512 = 65,536 bytes (fits in `int filesize`)
-typedef struct {
-	unsigned int sector;
-	unsigned int unused;
-} inode_indirect_t;
-
-// 16 bytes. 512/16 = 32 files per sector
-typedef struct {
-	unsigned int inode;
-	char filename[14];
-} dirent_t;
 
 int fs_init();
 int fs_mkfs();

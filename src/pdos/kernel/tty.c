@@ -101,8 +101,7 @@ unsigned char tty_getch()
 void tty_flush()
 {
     tt_enable();
-    while (outptr != outend)
-    {
+    while (outptr != outend) {
         asm("wait");
     }
 }
@@ -138,14 +137,9 @@ void tt_handler()
 {
     volatile unsigned char *xbuf = (unsigned char *)TTD;
 
-    if (outptr == outend)
-    {
+    if (outptr == outend) {
         tt_disable();
-        outptr = 0;
-        outend = 0;
-    }
-    else
-    {
+    } else {
         *xbuf = outbuf[outptr++ % BUFSIZE];
     }
 }

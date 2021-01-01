@@ -4,12 +4,9 @@
 #define RKBA 0177410    // disk bus address register
 #define RKDA 0177412    // disk address register
 
-#define RK_READ 5
-#define RK_WRITE 3
 #define RK_READY (1 << 7)
 
 #define RK_ADDRESS(sector) ((((sector) / 12) << 4) | ((sector) % 12))
-
 
 int _rk_fn(int fn, int sector, unsigned char * buf, unsigned int byte_count) {
     volatile unsigned int *rk_control = (volatile unsigned int *)RKCS;
@@ -25,14 +22,6 @@ int _rk_fn(int fn, int sector, unsigned char * buf, unsigned int byte_count) {
     while ((*rk_control & RK_READY) == 0);
 
     return 0;
-}
-
-int rk_read(int sector, unsigned char * dst, unsigned int byte_count) {
-    return _rk_fn(RK_READ, sector, dst, byte_count);
-}
-
-int rk_write(int sector, unsigned char * src, unsigned int byte_count) {
-    return _rk_fn(RK_WRITE, sector, src, byte_count);
 }
 
 

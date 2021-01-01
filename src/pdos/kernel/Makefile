@@ -5,6 +5,7 @@ GCC=pdp11-aout-gcc
 # -nostdlib not to try linking with any system libraries.
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
+# -Os optimize for size
 GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os
 AOUT2LDA=aout2lda.py
 
@@ -23,17 +24,20 @@ AOUT2LDA=aout2lda.py
 
 # Compile and link a c file into a.out format
 %.aout:
-	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ $^
+	$(GCC) $(GCCOPTS) -Ttext 0x400 -e _start -g -o $@ $^
 
 # Convert from a.out format into the tape loader format
 %.bin: %.aout
-	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x200
+	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x400
 
 ##########################################################
 
-all: pdos.bin
+all: boot_rk.bin bootstrap.bin pdos.bin
 
-pdos.aout: crt0.s isr.s traps.s tty.o stdlib.o boot.o cmd.o exec.o vm.o rk.o fs.o ptr.o
+pdos.aout: crt0.s isr.s traps.s tty.o stdlib.o stdio.o boot.o cmd.o exec.o vm.o rk.o fs.o ptr.o
+
+bootstrap.aout: crtboot.s bootstrap.o rk.o
+	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ $^
 
 install:
 	cp *.bin ../../../
