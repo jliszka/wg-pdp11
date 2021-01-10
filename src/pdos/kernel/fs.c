@@ -245,14 +245,14 @@ int fs_write(int inode, unsigned char * buf, int len, int offset) {
 		_fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
 
 		// Allocate a sector if needed
-		int dest_block = offset / BYTES_PER_SECTOR;
+		int dest_block = fs_block_from_pos(offset);
 		if (indirect[dest_block].sector == 0) {
 			indirect[dest_block].sector = _fs_allocate_sector();
 			_fs_write_sector(inode_table[inode].sector, (unsigned char *)indirect);
 		}
 
 		// Write as many bytes as we can to the sector. Caller might need to try again.
-		offset = offset % BYTES_PER_SECTOR;
+		offset = fs_offset_from_pos(offset);
 		bytes_to_write = len < BYTES_PER_SECTOR - offset ? len : BYTES_PER_SECTOR - offset;
 		_fs_read_sector(indirect[dest_block].sector, temp);
 		bcopy(temp + offset, buf, bytes_to_write);
@@ -288,8 +288,8 @@ int fs_read(int inode, unsigned char * buf, int len, int offset) {
 		// Indirect case
 		inode_indirect_t indirect[IINODES_PER_SECTOR];
 		_fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
-		int src_block = offset / BYTES_PER_SECTOR;
-		offset = offset % BYTES_PER_SECTOR;
+		int src_block = fs_block_from_pos(offset);
+		offset = fs_offset_from_pos(offset);
 		// Read up to the end of the sector. Caller might need to try again.
 		bytes_to_read = bytes_to_read < BYTES_PER_SECTOR - offset ? bytes_to_read : BYTES_PER_SECTOR - offset;
 		_fs_read_sector(indirect[src_block].sector, temp);

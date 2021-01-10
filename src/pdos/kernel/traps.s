@@ -53,7 +53,9 @@ ttable:
 	#.word trap.unlink	# 10
 
 # r5 points to user-space stack:
-# r5 -> exit code
+#     - exit code
+#     - return address for call to syscall stub
+# r5 -> old r5
 trap.exit:
     mfpi 4(r5)
     pop r0
@@ -69,8 +71,10 @@ trap.exit:
 	rts pc
 
 # r5 points to user-space stack:
-#       destination buffer
-# r5 -> number of bytes to read
+#     - destination buffer
+#     - number of bytes to read
+#     - return address for call to syscall stub
+# r5 -> old r5
 trap.read:
 	mfpi 4(r5)			# number of bytes to read
 	pop r0
@@ -115,10 +119,12 @@ trap.read:
 	jmp ret
 
 # r5 points to user-space stack:
-#       source buffer
-# r5 -> number of bytes to write
+#     - source buffer
+#     - number of bytes to write
+#     - return address for call to syscall stub
+# r5 -> old r5
 trap.write:
-    mfpi 4(r5)          # number of bytes to wrote
+    mfpi 4(r5)          # number of bytes to write
     pop r0
     mfpi 6(r5)          # source buffer
     pop r1
@@ -163,6 +169,7 @@ trap.write:
 
 	jmp ret
 
+# No arguments
 trap.flush:
 	jsr pc, _tty_flush
 	jmp ret
