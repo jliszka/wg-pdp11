@@ -112,7 +112,7 @@ void kb_handler()
     volatile unsigned char *rbuf = (unsigned char *)KBD;
     register char c = *rbuf;
 
-    if (c == DEL) {
+    if (c == DEL || c == '\b') {
         if (inend > 0) {
             outbuf[outend++ % BUFSIZE] = '\b';
             outbuf[outend++ % BUFSIZE] = ' ';

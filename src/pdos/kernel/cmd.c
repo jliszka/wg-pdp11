@@ -25,8 +25,7 @@ int mbr(int argc, char *argv[]);
 //
 // Simple command handler
 //
-typedef struct cmd
-{
+typedef struct cmd {
     char *command;
     char *help;
     int (*handler)(int, char *[]);
@@ -199,7 +198,10 @@ int cd(int argc, char *argv[]) {
 int ls(int argc, char *argv[]) {
     dirent_t dir[32];
     int n = fs_read_dir(pwd, 32, dir);
+    unsigned char outbuf[16];
     for (int i = 0; i < n; i++) {
+        print(itoa(10, dir[i].inode, outbuf));
+        print(" ");
         println(dir[i].filename);
     }
     return n;
@@ -341,7 +343,7 @@ int mbr(int argc, char *argv[]) {
     int byte_count = header[1];
     fs_read(boot_inode, (unsigned char *)boot_sector, byte_count - 6, 6);
 
-    // Overwrite the first byte of the bootstrap program with the inode of the kernel program
+    // Overwrite the first word of the bootstrap program with the inode of the kernel program
     boot_sector[0] = kernel_inode;
 
     // Write it to the boot sector.

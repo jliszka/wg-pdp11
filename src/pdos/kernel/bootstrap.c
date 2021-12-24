@@ -1,6 +1,6 @@
 #include "fs_defs.h"
 
-// This is pinned as the first byte of the program. It is overwritten by
+// This is pinned as the first word of the program. It is overwritten by
 // the mbr command when it copies this program to the boot sector of the disk.
 extern int kernel_inode;
 
