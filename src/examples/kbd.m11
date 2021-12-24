@@ -1,0 +1,24 @@
+.title Display the code for the typed character on the display
+
+dr = 177570
+
+kbv = 60                ; keyboard (TTI) interrupt vector
+kbs = 177560            ; keyboard status register
+kbd = 177562            ; keyboard data buffer
+
+.asect
+
+.=1000
+start:
+    mov #input, @#kbv   ; install keyboard ISR
+    mov #100, @#kbs     ; enable keyboard interrupts
+
+1$:
+    wait                ; wait for interrupts
+    br 1$
+
+input:
+    movb @#kbd, @#dr    ; copy character to display register
+    rti
+
+.end

@@ -11,8 +11,7 @@ start:
 
 loop:
     add r1, r0      ; add it to the accumulator (r0)
-    dec r1          ; decrement it
-    bne loop        ; loop until 0
+    sob r1, loop    ; decrement it and loop if not 0
 
 disp:
     halt            ; this will halt execution and show the value of r0 on the console lights

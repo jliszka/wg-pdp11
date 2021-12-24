@@ -1,0 +1,18 @@
+.title Display the code for the typed character on the display
+
+swr = 177570
+tts = 177564            ; terminal status register
+ttd = 177566            ; terminal data buffer
+
+.asect
+
+.=1000
+start:
+    halt
+    movb @#swr, @#ttd   ; copy character from switch register to terminal
+wait:
+    tstb @#tts          ; wait until character transmitted
+    bpl wait            ; this essentially tests bit 7: when set, device is ready for next char
+    br start
+
+.end
