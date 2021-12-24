@@ -7,6 +7,7 @@ GCC=pdp11-aout-gcc
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
 # -Os optimize for size
 GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os
+OBJDUMP=pdp11-aout-objdump
 AOUT2LDA=aout2lda.py
 
 %.obj: %.m11
@@ -30,14 +31,20 @@ AOUT2LDA=aout2lda.py
 %.bin: %.aout
 	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x400
 
+%.dasm: %.aout
+	$(OBJDUMP) --adjust-vma=0x400 -d $< > $@
+
 ##########################################################
 
 all: boot_rk.bin bootstrap.bin pdos.bin
 
-pdos.aout: crt0.s isr.s traps.s tty.o stdlib.o stdio.o boot.o cmd.o exec.o vm.o rk.o fs.o ptr.o
+pdos.aout: crt0.s isr.s traps.s tty.o stdlib.o stdio.o boot.o cmd.o exec.o vm.o rk.o fs.o ptr.o io.o
 
 bootstrap.aout: crtboot.s bootstrap.o rk.o
 	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ $^
+
+bootstrap.dasm: bootstrap.aout
+	$(OBJDUMP) --adjust-vma=0x200 -d $< > $@
 
 install:
 	cp *.bin ../../../

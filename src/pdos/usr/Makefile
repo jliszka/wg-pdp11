@@ -6,6 +6,7 @@ GCC=pdp11-aout-gcc
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
 GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os
+OBJDUMP=pdp11-aout-objdump
 AOUT2LDA=aout2lda.py
 
 %.obj: %.m11
@@ -28,6 +29,9 @@ AOUT2LDA=aout2lda.py
 # Convert from a.out format into the tape loader format
 %.bin: %.aout
 	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x2000
+
+%.dasm: %.aout
+	$(OBJDUMP) -d $< > $@
 
 ##########################################################
 
