@@ -44,13 +44,15 @@ ttable:
 	.word trap.read		# 1
 	.word trap.write	# 2
 	.word trap.flush	# 3
-	#.word trap.fopen	# 4
-	#.word trap.fclose	# 5
-	#.word trap.fseek	# 6
-    #.word trap.fread   # 7
-    #.word trap.fwrite  # 8
-	#.word trap.link 	# 9
-	#.word trap.unlink	# 10
+	.word trap.fopen	# 4
+	.word trap.fclose	# 5
+	.word trap.fseek	# 6
+    .word trap.fread    # 7
+    .word trap.fwrite   # 8
+    .word trap.fflush   # 9
+	#.word trap.link 	# 10
+	#.word trap.unlink	# 11
+    #.word trap.mkdir   # 12
 
 # r5 points to user-space stack:
 #     - exit code
@@ -65,7 +67,7 @@ trap.exit:
     #     - return address for this trap
     #     - r2
     # sp -> r3
-	# We want to ignore the first 2 and then return, so it'll be as if
+	# We want to ignore the first 4 and then return, so it'll be as if
 	# the jsr to user main() "returned" into kernel mode.
 	add $8, sp
 	rts pc
@@ -142,7 +144,7 @@ trap.write:
 	bit r1, $1			# check if the address is even
 	beq 1$
 
-	dec r1				# if so, copy only the first byte
+	dec r1				# if odd, copy only the first byte
 	mfpi (r1)+
 	pop r2
 	br 2$
@@ -174,4 +176,172 @@ trap.flush:
 	jsr pc, _tty_flush
 	jmp ret
 
+# r5 points to user-space stack:
+#     - mode (char)
+#     - path (char *)
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fopen:
+    mfpi 4(r5)          # path string
+    pop r1
+
+    mov $buf, r3
+    bit r1, $1          # check if the address is even
+    beq 1$
+
+    dec r1              # if odd, copy only the first byte
+    mfpi (r1)+
+    pop r2
+    br 2$
+
+1$:
+    mfpi (r1)+          # read a word from the previous address space
+    pop r2
+    movb r2, (r3)+      # copy the low byte to destination buffer
+    beq 3$              # if we copied a 0 byte, we're done
+2$:
+    ash $-8, r2
+    movb r2, (r3)+      # copy the high byte to destination buffer
+    beq 3$              # if we copied a 0 byte, we're done
+
+    br 1$               # go around again!
+
+3$:
+    mfpi 6(r5)          # mode
+    push $buf
+    jsr pc, _io_fopen
+    add $4, sp
+
+    jmp ret
+
+# r5 points to user-space stack:
+#     - fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fclose:
+    mfpi 4(r5)
+    jsr pc, _io_fclose
+    add $2, sp
+    jmp ret
+
+# r5 points to user-space stack:
+#     - pos
+#     - fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fseek:
+    mfpi 6(r5)
+    mfpi 4(r5)
+    jsr pc, _io_fseek
+    add $4, sp
+    jmp ret
+
+# r5 points to user-space stack:
+#     - len
+#     - dest buffer
+#     - fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fread:
+    mfpi 8(r5)          # number of bytes to read
+    push $buf           # destination buffer
+    mfpi 4(r5)          # file descriptor
+    jsr pc, _io_fread   # return value (r0): how many bytes read
+    add $6, sp
+
+    push r0             # save original value of r0
+
+    mfpi 6(r5)          # destination buffer => r1
+    pop r1
+
+    mov $buf, r2
+    bit r1, $1          # check if the address is even
+    beq 1$
+
+    dec r1
+    mfpi (r1)           # copy bytes from userspace destination buffer to stack
+    mov sp, r3          # use r3 instead of sp because sp can only point to even addresses
+    inc r3
+    br 2$
+
+1$:
+    mfpi (r1)           # copy bytes from userspace destination buffer to stack
+    mov sp, r3
+    movb (r2)+, (r3)+   # overwrite with data from $buf
+    dec r0
+    beq 3$
+
+2$:
+    movb (r2)+, (r3)+
+    dec r0
+    beq 3$
+    mtpi (r1)+          # copy it back to userspace destination buffer
+    br 1$
+3$:
+    mtpi (r1)+          # copy final word to userspace destination buffer
+
+    pop r0              # number of bytes read
+    jmp ret
+
+# r5 points to user-space stack:
+#     - len
+#     - src buffer
+#     - fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fwrite:
+    mfpi 8(r5)          # number of bytes to write
+    pop r0
+    mfpi 6(r5)          # source buffer
+    pop r1
+
+    tst r0              # nothing to write? return
+    beq ret
+
+    cmp r0, $bufsize    # don't copy over more than the size of the buffer
+    ble 4$
+    mov $bufsize, r0
+
+4$:
+    push r0             # save the number of bytes to write
+    mov $buf, r3
+    bit r1, $1          # check if the address is even
+    beq 1$
+
+    dec r1              # if odd, copy only the first byte
+    mfpi (r1)+
+    pop r2
+    br 2$
+
+1$:
+    mfpi (r1)+          # read a word from the previous address space
+    pop r2
+    movb r2, (r3)+      # copy the low byte to destination buffer
+    dec r0
+    beq 3$
+2$:
+    ash $-8, r2
+    movb r2, (r3)+      # copy the high byte to destination buffer
+    dec r0
+    beq 3$
+    br 1$
+
+3$:
+                        # number of bytes to write is already on the top of the stack
+    push $buf           # destination buffer
+    mfpi 4(r5)          # file descriptor
+    jsr pc, _io_fwrite
+    add $6, sp
+
+    jmp ret
+
+# r5 points to user-space stack:
+#     - fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fflush:
+    mfpi 4(r5)
+    jsr pc, _io_fflush
+    add $2, sp
+    jmp ret
 

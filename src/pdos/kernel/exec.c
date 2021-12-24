@@ -5,6 +5,7 @@
 #include "ptr.h"
 #include "vm.h"
 #include "fs.h"
+#include "io.h"
 
 #define KERNEL_MAPPING_PAGE 4
 #define ARGV_BUFSIZE 64
@@ -140,6 +141,9 @@ int exec(int code_page, int stack_page, int argc, char *argv[]) {
     vm_user_init(vm_page_block_number(code_page), vm_page_block_number(stack_page));
 
     vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(stack_page));
+
+    // Initialize file descriptor tables
+    io_reset();
 
     // Set up user stack
     unsigned int * stack = (unsigned int *)(vm_page_base_address(KERNEL_MAPPING_PAGE + 1) - ARGV_BUFSIZE - 4);

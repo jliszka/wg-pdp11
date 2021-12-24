@@ -80,6 +80,13 @@ int fs_is_dir(int inode) {
 	return 1;
 }
 
+int fs_filesize(int inode) {
+	if (inode_table[inode].refcount == 0) {
+		return -1;
+	}
+	return inode_table[inode].filesize;
+}
+
 int _fs_allocate_sector() {
 	unsigned char buf[BYTES_PER_SECTOR];
 	_fs_read_sector(FREE_SECTOR_MAP, buf);

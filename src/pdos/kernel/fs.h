@@ -31,5 +31,12 @@ int fs_write(int inode, unsigned char * buf, int len, int offset);
 int fs_read(int inode, unsigned char * buf, int len, int offset);
 int fs_read_dir(int dir_inode, int buflen, dirent_t * buf);
 int fs_is_dir(int inode);
+int fs_filesize(int inode);
+
+#define fs_read_block(inode, blockno, dst) \
+	fs_read(inode, dst, BYTES_PER_SECTOR, fs_pos_from_block(blockno))
+
+#define fs_write_block(inode, blockno, src) \
+	fs_write(inode, src, BYTES_PER_SECTOR, fs_pos_from_block(blockno))
 
 #endif

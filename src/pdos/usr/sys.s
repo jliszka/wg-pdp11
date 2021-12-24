@@ -5,6 +5,17 @@
 
 .include "macros.s"
 
+.macro syscall fn tr
+.globl \fn
+\fn:
+	push r5
+	mov sp, r5
+	trap \tr
+	pop r5
+	rts pc
+.endm
+
+
 .globl _exit
 _exit:
 	push r5
@@ -14,23 +25,12 @@ _exit:
 1$:
 	br 1$  	# unreachable
 
-.globl _read
-_read:
-	push r5
-	mov sp, r5
-	trap 1
-	pop r5
-	rts pc
-
-.globl _write
-_write:
-	push r5
-	mov sp, r5
-	trap 2
-	pop r5
-	rts pc
-
-.globl _flush
-_flush:
-	trap 3
-	rts pc
+syscall _read, 1
+syscall _write, 2
+syscall _flush, 3
+syscall _fopen, 4
+syscall _fclose, 5
+syscall _fseek, 6
+syscall _fread, 7
+syscall _fwrite, 8
+syscall _fflush, 9

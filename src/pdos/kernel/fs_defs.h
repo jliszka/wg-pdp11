@@ -46,6 +46,7 @@
 #define _fs_write_sector(sector, buf) rk_write(sector, buf, BYTES_PER_SECTOR) 
 
 #define fs_block_from_pos(pos) ((pos) >> BYTES_PER_SECTOR_SHIFT)
+#define fs_pos_from_block(blockno) ((blockno) << BYTES_PER_SECTOR_SHIFT)
 #define fs_offset_from_pos(pos) ((pos) & BYTES_PER_SECTOR_MASK)
 
 typedef struct {
