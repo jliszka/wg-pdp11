@@ -40,7 +40,7 @@
 #define INODE_TABLE 2
 #define INODE_TABLE_SIZE 5
 #define ROOT_DIR_SECTOR 7
-#define ROOT_DIR_INODE 0
+#define ROOT_DIR_INODE 1
 
 #define _fs_read_sector(sector, buf) rk_read(sector, buf, BYTES_PER_SECTOR)
 #define _fs_write_sector(sector, buf) rk_write(sector, buf, BYTES_PER_SECTOR) 
@@ -51,10 +51,10 @@
 typedef struct {
 	unsigned int sector;
 	unsigned int filesize;
-	unsigned char hard_refcount;
-	unsigned char soft_refcount;
+	unsigned char refcount;
 	unsigned char flags;
-	unsigned char unused;
+	unsigned char unused1;
+	unsigned char unused2;
 } inode_t;
 
 // 8 bytes. 512/4 = 128 indirect references per sector

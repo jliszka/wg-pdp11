@@ -50,7 +50,7 @@ int fs_mkfs() {
 	// Initialize the root dir inode
 	inode_table[0].sector = ROOT_DIR_SECTOR;
 	inode_table[0].filesize = 2 * sizeof(dirent_t);
-	inode_table[0].hard_refcount = 2;
+	inode_table[0].refcount = 2;
 	inode_table[0].flags = INODE_FLAG_DIRECTORY;
 	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
 	for (int i = 1; i < INODE_TABLE_SIZE; i++) {
@@ -58,10 +58,10 @@ int fs_mkfs() {
 	}
 
 	// Initialize the root directory table
-	root_dir[0].inode = 0;
+	root_dir[0].inode = ROOT_DIR_INODE;
 	root_dir[0].filename[0] = '.';
 
-	root_dir[1].inode = 0;
+	root_dir[1].inode = ROOT_DIR_INODE;
 	root_dir[1].filename[0] = '.';
 	root_dir[1].filename[1] = '.';
 
@@ -71,7 +71,7 @@ int fs_mkfs() {
 }
 
 int fs_is_dir(int inode) {
-	if (inode_table[inode].hard_refcount == 0) {
+	if (inode_table[inode].refcount == 0) {
 		return 0;
 	}		
 	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 0) {
@@ -138,8 +138,8 @@ int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigne
 
 	// Find an empty slot in the inode table
 	int new_inode;
-	for (new_inode = parent_dir_inode; new_inode < INODES_PER_SECTOR; new_inode++) {
-		if (inode_table[new_inode].hard_refcount == 0) break;
+	for (new_inode = ROOT_DIR_INODE+1; new_inode < INODES_PER_SECTOR; new_inode++) {
+		if (inode_table[new_inode].refcount == 0) break;
 	}
 	// Find an empty slot in the parent directory table
 	int next_dirent_idx = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
@@ -149,12 +149,12 @@ int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigne
 
 	// Create the new inode
 	bzero((unsigned char *)&(inode_table[new_inode]), sizeof(inode_t));
-	inode_table[new_inode].hard_refcount = 1;
+	inode_table[new_inode].refcount = 1;
 	inode_table[new_inode].flags = flags;
 
 	// Update parent inode
 	inode_table[parent_dir_inode].filesize += sizeof(dirent_t);
-	inode_table[parent_dir_inode].hard_refcount += 1;
+	inode_table[parent_dir_inode].refcount += 1;
 
 	_fs_write_sector(inode_table[parent_dir_inode].sector, (unsigned char *)parent_dir);
 
@@ -189,7 +189,7 @@ int fs_mkdir(int parent_dir_inode, char * dirname) {
 	}
 	int new_inode = _fs_mk(parent_dir_inode, parent_dir, dirname, INODE_FLAG_DIRECTORY);
 	inode_table[new_inode].filesize = 2 * sizeof(dirent_t);
-	inode_table[new_inode].hard_refcount = 2;
+	inode_table[new_inode].refcount = 2;
 
 	dirent_t dir[DIRENTS_PER_SECTOR];
 	bzero((unsigned char *)dir, BYTES_PER_SECTOR);
@@ -208,7 +208,7 @@ int fs_mkdir(int parent_dir_inode, char * dirname) {
 }
 
 int fs_write(int inode, unsigned char * buf, int len, int offset) {
-	if (inode_table[inode].hard_refcount == 0) {
+	if (inode_table[inode].refcount == 0) {
 		return -1;
 	}
 	if (fs_is_dir(inode)) {
@@ -270,7 +270,7 @@ int fs_write(int inode, unsigned char * buf, int len, int offset) {
 }
 
 int fs_read(int inode, unsigned char * buf, int len, int offset) {
-	if (inode_table[inode].hard_refcount == 0) {
+	if (inode_table[inode].refcount == 0) {
 		return -1;
 	}
 	if (inode_table[inode].sector == 0) {
@@ -292,8 +292,13 @@ int fs_read(int inode, unsigned char * buf, int len, int offset) {
 		offset = fs_offset_from_pos(offset);
 		// Read up to the end of the sector. Caller might need to try again.
 		bytes_to_read = bytes_to_read < BYTES_PER_SECTOR - offset ? bytes_to_read : BYTES_PER_SECTOR - offset;
-		_fs_read_sector(indirect[src_block].sector, temp);
-		bcopy(buf, temp + offset, bytes_to_read);
+		if (indirect[src_block].sector == 0) {
+			// Zero sector means this is a hole in the file, so return 0s.
+			bzero(buf, bytes_to_read);
+		} else {
+			_fs_read_sector(indirect[src_block].sector, temp);
+			bcopy(buf, temp + offset, bytes_to_read);
+		}
 	} else {
 		// Direct case
 		_fs_read_sector(inode_table[inode].sector, temp);
