@@ -10,14 +10,18 @@ ttv = 64                ; terminal (TTO) interrupt vector
 tts = 177564            ; terminal status register
 ttd = 177566            ; terminal data buffer
 
-CR = 15
 LF = 12
+FF = 14
+CR = 15
 
 stack = 160000
 
 .=1000
 start:
     mov #stack, sp      ; initialize the stack pointer
+
+    jsr r5, print       ; clear screen
+    .word cls
 
     jsr r5, print       ; "Hello, what is your name?"
     .word msg1
@@ -35,6 +39,7 @@ start:
     .word msg3
 
     halt
+    br start
 
 
 input:
@@ -80,6 +85,9 @@ buf:
 
 crlf:
     .asciz <CR><LF>
+
+cls:
+    .asciz <FF>
 
 msg1:
     .asciz /Hello, what is your name?/<CR><LF>
