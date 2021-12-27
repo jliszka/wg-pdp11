@@ -55,9 +55,11 @@ void tty_init()
 
 int tty_write(int nbytes, char *str)
 {
+    asm("spl 7");
     if (outend + nbytes > outptr + BUFSIZE) {
         nbytes = outptr + BUFSIZE - outend;
     }
+    asm("spl 0");
     if (nbytes == 0) {
         tty_flush();
         return 0;
@@ -100,10 +102,12 @@ unsigned char tty_getch()
 
 void tty_flush()
 {
+  if (outptr != outend) {
     tt_enable();
     while (outptr != outend) {
         asm("wait");
     }
+  }
 }
 
 // Keyboard interrupt handler, called from isr.s

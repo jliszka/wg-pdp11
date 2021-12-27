@@ -6,6 +6,7 @@ typedef struct {
     int inode;
     int cur_block;
     int pos;
+    int max_pos;
     char mode;
     unsigned char buffer[BYTES_PER_SECTOR];
 } fd_t;
@@ -17,6 +18,7 @@ int io_reset() {
     for (int i = 0; i < MAX_FDS; i++) {
         fd_table[i].cur_block = -1;
         fd_table[i].pos = 0;
+	fd_table[i].max_pos = 0;
         fd_table[i].mode = 0;
     }
 }
@@ -39,7 +41,7 @@ int io_fopen(char * path, char mode) {
         return -2;
     }
     char * path_parts[8];
-    int nparts = strntok(path, ' ', path_parts, 8);
+    int nparts = strntok(path, '/', path_parts, 8);
     // part[0] should be '' because the path must start with '/'
     // TODO: support relative paths & PWD
 
@@ -62,7 +64,7 @@ int io_fopen(char * path, char mode) {
     int file_inode = fs_find_inode(parent_dir_inode, filename);
     if (file_inode < 0) {
         // File not found. If we're in write mode, create it.
-        if (mode != 'w') {
+        if (mode != 'w' && mode != 'a') {
             return -4;
         }
         file_inode = fs_touch(parent_dir_inode, filename);
@@ -71,11 +73,17 @@ int io_fopen(char * path, char mode) {
         return -5;
     }
 
+    int pos = 0;
+    if (mode == 'a') {
+        pos = fs_filesize(fdt->inode);
+    }
+
     // Now that everything checks out, allocate the fd.
     fd_t * fdt = &fd_table[fd];
     fdt->inode = file_inode;
     fdt->cur_block = -1;
-    fdt->pos = 0;
+    fdt->pos = pos;
+    fdt->max_pos = pos;
     fdt->mode = mode;
     bzero(fdt->buffer, BYTES_PER_SECTOR);
 
@@ -106,11 +114,16 @@ int io_fseek(int fd, unsigned int pos) {
     if (fd_table[fd].mode == 0) {
         return -2;
     }
-    int filesize = fs_filesize(fd_table[fd].inode);
-    if (pos > filesize) {
+    fd_t * fdt = &fd_table[fd];    
+    int filesize = fs_filesize(fdt->inode);
+    if (pos > filesize && fdt->mode == 'r') {
+      // Don't allow reading past the end of the file.
         pos = filesize;
     }
-    fd_table[fd].pos = pos;
+    fdt->pos = pos;
+    if (fdt->pos > fdt->max_pos) {
+      fdt->max_pos = fdt-> pos;
+    }
     return 0;
 }
 
@@ -176,7 +189,9 @@ int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
 
     // Advance the current position
     fdt->pos += len;
-
+    if (fdt->pos > fdt->max_pos) {
+      fdt->max_pos = fdt-> pos;
+    }
     bcopy(fdt->buffer + offset, buf, len);
 
     return len;
@@ -189,9 +204,16 @@ int io_fflush(int fd) {
     
     fd_t * fdt = &fd_table[fd];
 
-    // Flush the current block if valid
+    // Flush the current block if valid    
     if (fdt->cur_block >= 0) {
+      if (fdt->max_pos / BYTES_PER_SECTOR == fdt->cur_block) {
+	// This is the last block, only write as many bytes as we have.
+	fs_write(fdt->inode, fdt->buffer, fdt->max_pos % BYTES_PER_SECTOR, fs_pos_from_block(fdt->cur_block));
+      } else {
+	// Flush the whole block
         fs_write_block(fdt->inode, fdt->cur_block, fdt->buffer);
+      }
     }
+    
     return 0;
 }

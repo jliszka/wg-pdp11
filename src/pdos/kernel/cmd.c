@@ -83,6 +83,7 @@ void cmd()
         print(itoa(10, pwd, buf));
         print("> ");
         tty_flush();
+	// asm("halt");
 
         tty_read(256, buf);
         int ret = execute(buf);

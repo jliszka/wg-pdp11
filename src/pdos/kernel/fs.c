@@ -47,15 +47,16 @@ int fs_mkfs() {
 	_fs_write_sector(FREE_SECTOR_MAP, buf);
 	buf[0] = 0;
 
-	// Initialize the root dir inode
-	inode_table[0].sector = ROOT_DIR_SECTOR;
-	inode_table[0].filesize = 2 * sizeof(dirent_t);
-	inode_table[0].refcount = 2;
-	inode_table[0].flags = INODE_FLAG_DIRECTORY;
-	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
-	for (int i = 1; i < INODE_TABLE_SIZE; i++) {
+	// Initialize the inode table
+	for (int i = 0; i < INODE_TABLE_SIZE; i++) {
 		_fs_write_sector(INODE_TABLE+i, buf);
 	}
+	// Root dir inode
+	inode_table[ROOT_DIR_INODE].sector = ROOT_DIR_SECTOR;
+	inode_table[ROOT_DIR_INODE].filesize = 2 * sizeof(dirent_t);
+	inode_table[ROOT_DIR_INODE].refcount = 2;
+	inode_table[ROOT_DIR_INODE].flags = INODE_FLAG_DIRECTORY;
+	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
 
 	// Initialize the root directory table
 	root_dir[0].inode = ROOT_DIR_INODE;
