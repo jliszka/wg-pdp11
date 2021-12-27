@@ -38,7 +38,7 @@ AOUT2LDA=aout2lda.py
 all: hello.bin files.bin
 
 install:
-	cp *.bin ../../../
+	cp *.bin /opt/pidp11/systems/pdos/
 
 clean:
 	rm -f *.o *.obj *.bin *.lst *.aout

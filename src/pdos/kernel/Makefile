@@ -47,7 +47,7 @@ bootstrap.dasm: bootstrap.aout
 	$(OBJDUMP) --adjust-vma=0x200 -d $< > $@
 
 install:
-	cp *.bin ../../../
+	cp *.bin /opt/pidp11/systems/pdos/
 
 clean:
 	rm -f *.o *.obj *.bin *.lst *.aout
