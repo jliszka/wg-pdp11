@@ -25,13 +25,17 @@ int fs_init();
 int fs_mkfs();
 int fs_mount();
 int fs_find_inode(int parent_dir_inode, char * filename);
+int fs_resolve_path(char * path, path_info_t * path_info);
 int fs_touch(int parent_dir_inode, char * filename);
-int fs_mkdir(int parent_dir_inode, char * dirname);
+int fs_mkdir(char * dirname);
 int fs_write(int inode, unsigned char * buf, int len, int offset);
 int fs_read(int inode, unsigned char * buf, int len, int offset);
 int fs_read_dir(int dir_inode, int buflen, dirent_t * buf);
 int fs_is_dir(int inode);
 int fs_filesize(int inode);
+int fs_link(char * src, char * dst);
+int fs_unlink(char * target);
+int fs_rmdir(char * dirname);
 
 #define fs_read_block(inode, blockno, dst) \
 	fs_read(inode, dst, BYTES_PER_SECTOR, fs_pos_from_block(blockno))

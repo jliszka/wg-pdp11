@@ -17,7 +17,8 @@
 _start:
     mov $0177674, sp
     jsr pc,_main
-    trap 0      # exit
+    mov r0,-(sp)  # push return code
+    jsr pc,_exit  # exit
 
 #############################################################################*
 ##### ___main: called by C main() function. Currently does nothing

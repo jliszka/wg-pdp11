@@ -5,9 +5,32 @@
 .globl _tty_read
 .globl _tty_write
 .globl _tty_flush
+.globl _userexec
 
 .text
 .even
+
+# "Reverse" trap to jump to user mode program
+_userexec:
+    push r1
+    push r2
+    push r3
+    push r4
+    push r5
+
+    push $tgt           # return address for exit()
+
+    push $0140000
+    push $020000
+    rti                 # simultaneously set mode and "jump"
+
+tgt:
+    pop r5
+    pop r4
+    pop r3
+    pop r2
+    pop r1
+    rts pc
 
 # The syscall stubs in sys.s set it up so that r5 points to the user stack.
 # Traps handlers can access the first argument as 4(r5), the second as 6(r5), etc.
@@ -47,12 +70,13 @@ ttable:
 	.word trap.fopen	# 4
 	.word trap.fclose	# 5
 	.word trap.fseek	# 6
-    .word trap.fread    # 7
-    .word trap.fwrite   # 8
-    .word trap.fflush   # 9
-	#.word trap.link 	# 10
-	#.word trap.unlink	# 11
-    #.word trap.mkdir   # 12
+	.word trap.fread        # 7
+	.word trap.fwrite       # 8
+	.word trap.fflush       # 9
+	.word trap.link 	# 10
+	.word trap.unlink	# 11
+	.word trap.mkdir        # 12
+	.word trap.rmdir	# 13
 
 # r5 points to user-space stack:
 #     - exit code
@@ -88,8 +112,8 @@ trap.read:
 
 	push r0				# save original value of r0
 
-    mfpi 6(r5)          # destination buffer
-    pop r1
+	mfpi 6(r5)          # destination buffer
+	pop r1
 
 	mov $buf, r2
 	bit r1, $1			# check if the address is even
@@ -183,28 +207,9 @@ trap.flush:
 # r5 -> old r5
 trap.fopen:
     mfpi 4(r5)          # path string
-    pop r1
-
-    mov $buf, r3
-    bit r1, $1          # check if the address is even
-    beq 1$
-
-    dec r1              # if odd, copy only the first byte
-    mfpi (r1)+
-    pop r2
-    br 2$
-
-1$:
-    mfpi (r1)+          # read a word from the previous address space
-    pop r2
-    movb r2, (r3)+      # copy the low byte to destination buffer
-    beq 3$              # if we copied a 0 byte, we're done
-2$:
-    ash $-8, r2
-    movb r2, (r3)+      # copy the high byte to destination buffer
-    beq 3$              # if we copied a 0 byte, we're done
-
-    br 1$               # go around again!
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
 
 3$:
     mfpi 6(r5)          # mode
@@ -213,6 +218,36 @@ trap.fopen:
     add $4, sp
 
     jmp ret
+
+
+# Read from user-space buffer (top of stack)
+readbuf:
+	mov 2(sp), r0       # buffer to copy into
+	mov 4(sp), r1	    # user-space pointer
+
+	bit r1, $1          # check if the address is even
+	beq 1$
+
+	dec r1              # if odd, copy only the first byte
+	mfpi (r1)+
+	pop r2
+	br 2$
+
+1$:
+	mfpi (r1)+          # read a word from the previous address space
+	pop r2
+	movb r2, (r0)+      # copy the low byte to destination buffer
+	beq 3$              # if we copied a 0 byte, we're done
+2$:
+	ash $-8, r2
+	movb r2, (r0)+      # copy the high byte to destination buffer
+	beq 3$              # if we copied a 0 byte, we're done
+
+	br 1$               # go around again!
+
+3$:
+	rts pc
+
 
 # r5 points to user-space stack:
 #     - fd
@@ -344,4 +379,79 @@ trap.fflush:
     jsr pc, _io_fflush
     add $2, sp
     jmp ret
+
+
+# r5 points to user-space stack:
+#     - target path name (user-space pointer)
+#     - source path name (user-space pointer)
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.link:
+	mfpi 4(r5)          # source path
+	push $buf
+	jsr pc, readbuf
+	add $4, sp
+
+	push r0	            # r0 is the beginning of the target path string
+
+	mfpi 6(r5)          # target path
+	push r0
+	jsr pc, readbuf
+	add $4, sp
+
+	# target path is already on the stack
+	push $buf          # source path
+	jsr pc, _fs_link
+	add $4, sp
+
+	jmp ret
+
+
+# r5 points to user-space stack:
+#     - target path name (user-space pointer)
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.unlink:
+	mfpi 4(r5)          # target dir name
+	push $buf
+	jsr pc, readbuf
+	add $4, sp
+
+	push $buf
+	jsr pc, _fs_unlink
+	add $2, sp
+
+	jmp ret
+
+# r5 points to user-space stack:
+#     - target dir name (user-space pointer)
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.mkdir:
+	mfpi 4(r5)          # target dir name
+	push $buf
+	jsr pc, readbuf
+	add $4, sp
+
+	push $buf
+	jsr pc, _fs_mkdir
+	add $2, sp
+
+	jmp ret
+
+# r5 points to user-space stack:
+#     - target dir name (user-space pointer)
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.rmdir:
+	mfpi 4(r5)          # target dir name
+	push $buf
+	jsr pc, readbuf
+	add $4, sp
+
+	push $buf
+	jsr pc, _fs_rmdir
+	add $2, sp
+
+	jmp ret
 

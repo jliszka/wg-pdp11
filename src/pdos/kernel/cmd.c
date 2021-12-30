@@ -5,6 +5,7 @@
 #include "exec.h"
 #include "fs.h"
 #include "rk.h"
+#include "errno.h"
 
 int help(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
@@ -12,7 +13,6 @@ int halt(int argc, char *argv[]);
 int save(int argc, char *argv[]);
 int mkfs(int argc, char *argv[]);
 int mount(int argc, char *argv[]);
-int mkdir(int argc, char *argv[]);
 int touch(int argc, char *argv[]);
 int cd(int argc, char *argv[]);
 int ls(int argc, char *argv[]);
@@ -39,7 +39,6 @@ cmd_t commands[NUM_CMDS] = {
     {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
     {"mkfs", "", &mkfs},
     {"mount", "", &mount},
-    {"mkdir", "", &mkdir},
     {"touch", "", &touch},
     {"cd", "", &cd},
     {"ls", "", &ls},
@@ -54,8 +53,9 @@ typedef struct prog {
     unsigned int stack_page;
 } prog_t;
 
-unsigned int next_page = 8;
-unsigned int pwd = 0;
+unsigned int pwd = ROOT_DIR_INODE;
+static unsigned int root_dir = ROOT_DIR_INODE;
+static unsigned int next_page = 8;
 
 int execute(char * input) {
     char * argv[8];
@@ -83,7 +83,6 @@ void cmd()
         print(itoa(10, pwd, buf));
         print("> ");
         tty_flush();
-	// asm("halt");
 
         tty_read(256, buf);
         int ret = execute(buf);
@@ -136,8 +135,10 @@ int save(int argc, char *argv[]) {
         return -1;
     }
     int inode = fs_find_inode(pwd, argv[1]);
-    if (inode < 0) {
+    if (inode == ERR_FILE_NOT_FOUND) {
         inode = fs_touch(pwd, argv[1]);
+    } else if (inode < 0) {
+        return inode;
     } else if (fs_is_dir(inode)) {
         println("File is a directory");
         return -2;
@@ -148,32 +149,32 @@ int save(int argc, char *argv[]) {
     while (ptr_has_next()) {
         buf[pos++ % 256] = ptr_next();
         if (pos % 256 == 0) {
-            fs_write(inode, buf, 256, pos - 256);
+            int ret = fs_write(inode, buf, 256, pos - 256);
+            if (ret < 0) {
+                return ret;
+            }
         }
     }
     int remaining = pos % 256;
     if (remaining > 0) {
-        fs_write(inode, buf, remaining, pos - remaining);
+        int ret = fs_write(inode, buf, remaining, pos - remaining);
+        if (ret < 0) {
+            return ret;
+        }
     }
     return pos;
 }
 
 int mkfs(int argc, char *argv[]) {
-    pwd = fs_mkfs();
+    root_dir = fs_mkfs();
+    pwd = root_dir;
     return 0;
 }
 
 int mount(int argc, char *argv[]) {
-    pwd = fs_mount();
+    root_dir = fs_mount();
+    pwd = root_dir;
     return 0;
-}
-
-int mkdir(int argc, char *argv[]) {
-    if (argc < 2) {
-        println("Not enough arguments");
-        return -1;
-    }
-    return fs_mkdir(pwd, argv[1]);
 }
 
 int touch(int argc, char *argv[]) {
@@ -243,12 +244,16 @@ int hexdump(int argc, char *argv[]) {
         println("Not enough arguments");
         return -1;
     }
-    int inode = fs_find_inode(pwd, argv[1]);
-    if (inode < 0) {
+    path_info_t path;
+    int ret = fs_resolve_path(argv[1], &path);
+    if (ret < 0) {
+      return ret;
+    }
+    if (path.inode < 0) {
         println("File not found");
         return -1;
     }
-    if (fs_is_dir(inode)) {
+    if (fs_is_dir(path.inode)) {
         println("Not a regular file");
         return -2;
     }
@@ -256,10 +261,10 @@ int hexdump(int argc, char *argv[]) {
     unsigned int inbuf[inbuflen];
     unsigned char outbuf[16];
 
-    println(itoa(10, inode, outbuf));
+    println(itoa(10, path.inode, outbuf));
 
     int pos = 0;
-    int n = fs_read(inode, (unsigned char *)inbuf, inbuflen*2, pos);
+    int n = fs_read(path.inode, (unsigned char *)inbuf, inbuflen*2, pos);
     do {
         print(itoa(16, pos, outbuf));
         print(" ");
@@ -268,7 +273,7 @@ int hexdump(int argc, char *argv[]) {
             print(" ");
         }
         pos += n;
-        n = fs_read(inode, (unsigned char *)inbuf, inbuflen*2, pos);
+        n = fs_read(path.inode, (unsigned char *)inbuf, inbuflen*2, pos);
         println("");
     } while (n > 0);
     return 0;
@@ -279,10 +284,21 @@ int run(int argc, char *argv[]) {
         println("Not enough arguments");
         return -1;
     }
-    int inode = fs_find_inode(pwd, argv[0]);
-    if (inode < 0) {
-        println("File not found");
-        return -1;
+
+    int inode;
+    path_info_t path_info;
+    int ret = fs_resolve_path(argv[0], &path_info);
+    if (ret < 0 || path_info.inode == 0) {
+        int bin_inode = fs_find_inode(root_dir, "bin");
+        if (bin_inode > 0) {
+            inode = fs_find_inode(bin_inode, argv[0]);
+        }
+        if (inode < 0) {
+            println("Command not found");
+            return ERR_FILE_NOT_FOUND;
+        }
+    } else {
+        inode = path_info.inode;
     }
     if (fs_is_dir(inode)) {
         println("Not a regular file");
@@ -291,7 +307,7 @@ int run(int argc, char *argv[]) {
 
     int code_page = next_page;
     int stack_page = next_page+1;
-    int ret = load_disk(inode, code_page);
+    ret = load_disk(inode, code_page);
     if (ret != 0) return ret;
 
     return exec(code_page, stack_page, argc, argv);

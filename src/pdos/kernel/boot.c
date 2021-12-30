@@ -11,7 +11,7 @@ int main()
     vm_init();
     fs_init();
 
-	print("\033[2J\033[H");
+    print("\033[2J\033[H");
     println("Welcome to PDOS.");
 
     cmd();

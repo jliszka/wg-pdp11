@@ -1,6 +1,7 @@
 #include "io.h"
 #include "fs.h"
 #include "stdlib.h"
+#include "errno.h"
 
 typedef struct {
     int inode;
@@ -33,54 +34,35 @@ int io_fopen(char * path, char mode) {
     }
     if (fd == MAX_FDS) {
         // Max fds open
-        return -1;
-    }
-    
-    if (*path != '/') {
-        // For now, all paths must be absolute
-        return -2;
-    }
-    char * path_parts[8];
-    int nparts = strntok(path, '/', path_parts, 8);
-    // part[0] should be '' because the path must start with '/'
-    // TODO: support relative paths & PWD
-
-    // Traverse to the parent dir
-    int parent_dir_inode = ROOT_DIR_INODE;
-    for (int i = 1; i < nparts-1; i++) {
-        parent_dir_inode = fs_find_inode(parent_dir_inode, path_parts[i]);
-        if (parent_dir_inode < 0) {
-            // Dir not found.
-            return -4;
-        }
-        if (!fs_is_dir(parent_dir_inode)) {
-            // Non-terminal path part is not a directory
-            return -3;
-        }
+        return ERR_OUT_OF_FDS;
     }
 
-    // Find the file
-    char * filename = path_parts[nparts-1];
-    int file_inode = fs_find_inode(parent_dir_inode, filename);
-    if (file_inode < 0) {
+
+    path_info_t path_info;
+    int ret = fs_resolve_path(path, &path_info);
+    if (ret < 0) {
+      return ret;
+    }
+
+    if (path_info.inode < 0) {
         // File not found. If we're in write mode, create it.
         if (mode != 'w' && mode != 'a') {
-            return -4;
+            return ERR_FILE_NOT_FOUND;
         }
-        file_inode = fs_touch(parent_dir_inode, filename);
-    } else if (fs_is_dir(file_inode)) {
+        path_info.inode = fs_touch(path_info.parent_dir_inode, path_info.filename);
+    } else if (fs_is_dir(path_info.inode)) {
         // File must be a regular file.
-        return -5;
+        return ERR_IS_A_DIRECTORY;
     }
 
     int pos = 0;
     if (mode == 'a') {
-        pos = fs_filesize(fdt->inode);
+        pos = fs_filesize(path_info.inode);
     }
 
     // Now that everything checks out, allocate the fd.
     fd_t * fdt = &fd_table[fd];
-    fdt->inode = file_inode;
+    fdt->inode = path_info.inode;
     fdt->cur_block = -1;
     fdt->pos = pos;
     fdt->max_pos = pos;

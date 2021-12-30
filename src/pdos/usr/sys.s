@@ -34,3 +34,7 @@ syscall _fseek, 6
 syscall _fread, 7
 syscall _fwrite, 8
 syscall _fflush, 9
+syscall _link, 10
+syscall _unlink, 11
+syscall _mkdir, 12
+syscall _rmdir, 13

@@ -1,7 +1,10 @@
 bin/
 local/
+deps/
 *.bin
 *.lst
 *.obj
 *.o
 *.aout
+*.dasm
+*~

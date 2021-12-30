@@ -10,6 +10,8 @@
 #define KERNEL_MAPPING_PAGE 4
 #define ARGV_BUFSIZE 64
 
+extern int userexec();
+
 int load_disk(int inode, int code_page) {
     char buf[32];
     int start_address = 0;
@@ -29,6 +31,10 @@ int load_disk(int inode, int code_page) {
 
         int header[3];
         int header_bytes = fs_read(inode, (unsigned char *)header, 6, pos);
+        if (header_bytes < 0) {
+            println("Unable to read header");
+            return header_bytes;
+        }
         pos += header_bytes;
 
         if (header_bytes != 6) {
@@ -65,8 +71,13 @@ int load_disk(int inode, int code_page) {
         int bytes_read = 0;
         unsigned char * dst = (unsigned char *)(address - start_address + base_address);
         do {
-            bytes_read += fs_read(inode, dst + pos - segment_base, byte_count - bytes_read, pos);
-            pos += bytes_read;
+            int len = fs_read(inode, dst + pos - segment_base, byte_count - bytes_read, pos);
+            if (len < 0) {
+                println("Error reading file");
+                return len;
+            }
+            bytes_read += len;
+            pos += len;
         } while (bytes_read < byte_count);
 
         // 3. TODO: validate the checksum
@@ -160,18 +171,18 @@ int exec(int code_page, int stack_page, int argc, char *argv[]) {
 
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
 
-    // Set up instructions to switch to user mode just before the user program start address
-    // bis #140000, @#psw
-    start_address -= 3;
-    start_address[0] = 052737;
-    start_address[1] = 0140000;
-    start_address[2] = 0177776;
+    // Set up instructions to switch to user mode just before the user program start address.
+    // The instruction that lives there is:
+    // bis $140000, @#psw
+    // start_address -= 3;
 
     // Call user program main. It doesn't matter what args we pass here, because those
     // all end up on the kernel stack, not the user stack. But when the program exits,
     // we need the return address and arguments to be set up properly.
-    int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
-    int ret = start(argc, (char **)-ARGV_BUFSIZE);
+    // int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
+    // int ret = start(argc, (char **)-ARGV_BUFSIZE);
+
+    int ret = userexec();
 
     vm_user_unmap();
 
