@@ -10,28 +10,6 @@
 .text
 .even
 
-# "Reverse" trap to jump to user mode program
-_userexec:
-    push r1
-    push r2
-    push r3
-    push r4
-    push r5
-
-    push $tgt           # return address for exit()
-
-    push $0140000
-    push $020000
-    rti                 # simultaneously set mode and "jump"
-
-tgt:
-    pop r5
-    pop r4
-    pop r3
-    pop r2
-    pop r1
-    rts pc
-
 # The syscall stubs in sys.s set it up so that r5 points to the user stack.
 # Traps handlers can access the first argument as 4(r5), the second as 6(r5), etc.
 #     - arg3
@@ -78,6 +56,19 @@ ttable:
 	.word trap.mkdir        # 12
 	.word trap.rmdir	# 13
 
+
+# "Reverse" trap to jump to user mode program
+_userexec:
+    push r1
+    push r2
+    push r3
+    push r4
+    push r5
+
+    push $0140000
+    push $020000
+    rti                 # simultaneously set mode and "jump"
+
 # r5 points to user-space stack:
 #     - exit code
 #     - return address for call to syscall stub
@@ -86,15 +77,23 @@ trap.exit:
     mfpi 4(r5)
     pop r0
 	# current stack looks like:
-    #     - return address for jsr to call user main()
+    #     - return address for call to userexec()
+    #     - saved registers r1-r5
     #     - PSW for this trap
     #     - return address for this trap
     #     - r2
     # sp -> r3
-	# We want to ignore the first 4 and then return, so it'll be as if
-	# the jsr to user main() "returned" into kernel mode.
+	# We want to ignore the first 4, restore the registers, and then return,
+    # effectively simulating the "return" from userexec()
+    halt
 	add $8, sp
-	rts pc
+
+    pop r5
+    pop r4
+    pop r3
+    pop r2
+    pop r1
+    rts pc
 
 # r5 points to user-space stack:
 #     - destination buffer
