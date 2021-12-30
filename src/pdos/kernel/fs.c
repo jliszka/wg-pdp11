@@ -359,10 +359,6 @@ int fs_read(int inode, unsigned char * buf, int len, int offset) {
 	if (inode_table[inode].refcount == 0) {
 		return ERR_FILE_NOT_FOUND;
 	}
-	if (inode_table[inode].sector == 0) {
-	  // TODO: Is this a hole?
-		return -2;
-	}
 	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 1) {
 		return ERR_IS_A_DIRECTORY;
 	}
@@ -467,16 +463,25 @@ int fs_unlink(char * target) {
 
 	inode_t * fi = &inode_table[path_info.inode];
 	fi->refcount -= 1;
-	if (fi->refcount == 0) {
-		// TODO: indirect inodes
-		// inode_indirect_t indirect[IINODES_PER_SECTOR];
-		// _fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
+	if (fi->refcount > 0) {
+        return fi->refcount;
+    }
 
-		_fs_free_sector(fi->sector);
-		fi->sector = 0;
-		fi->filesize = 0;
-		fi->flags = 0;
-	}
+	if (inode_table[path_info.inode].flags & INODE_FLAG_INDIRECT) {
+		// Indirect case
+		inode_indirect_t indirect[IINODES_PER_SECTOR];
+		_fs_read_sector(inode_table[path_info.inode].sector, (unsigned char *)indirect);
+        for (int i = 0; i < IINODES_PER_SECTOR; i++) {
+            if (indirect[i].sector > 0) {
+                _fs_free_sector(indirect[i].sector);
+            }
+        }
+    }
+
+    _fs_free_sector(fi->sector);
+    fi->sector = 0;
+    fi->filesize = 0;
+    fi->flags = 0;
 
 	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
 
@@ -500,10 +505,6 @@ int fs_rmdir(char * target) {
 	if (di->refcount > 2) {
 		return ERR_DIRECTORY_NOT_EMPTY;
 	}
-
-	// TODO: indirect inodes
-	// inode_indirect_t indirect[IINODES_PER_SECTOR];
-	// _fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
 
 	_fs_free_sector(di->sector);
 	di->sector = 0;

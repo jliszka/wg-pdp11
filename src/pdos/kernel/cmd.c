@@ -32,7 +32,7 @@ typedef struct cmd {
 cmd_t commands[NUM_CMDS] = {
     {"help", "usage: help\r\nShows all commands and their usage\r\n", &help},
     {"echo", "usage: echo <arg1> <arg2> <arg3>\r\nEchos input arguments to the output\r\n", &echo},
-    {"load", "usage: load <name>, [<name>...]\r\nSaves a series of program from the tape reader device to the disk with the given names\r\n", &load},
+    {"load", "usage: load <name>, [<name>...]\r\nSaves a series of programs from the tape reader device to the disk with the given names\r\n", &load},
     {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
     {"mkfs", "", &mkfs},
     {"mount", "", &mount},

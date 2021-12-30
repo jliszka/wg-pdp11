@@ -58,7 +58,7 @@ typedef struct {
 	unsigned char unused2;
 } inode_t;
 
-// 8 bytes. 512/4 = 128 indirect references per sector
+// 4 bytes. 512/4 = 128 indirect references per sector
 // max filesize = 128 * 512 = 65,536 bytes (fits in `int filesize`)
 typedef struct {
 	unsigned int sector;
