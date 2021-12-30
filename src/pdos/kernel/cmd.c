@@ -13,12 +13,9 @@ int halt(int argc, char *argv[]);
 int load(int argc, char *argv[]);
 int mkfs(int argc, char *argv[]);
 int mount(int argc, char *argv[]);
-int touch(int argc, char *argv[]);
 int cd(int argc, char *argv[]);
 int ls(int argc, char *argv[]);
-int cat(int argc, char *argv[]);
 int run(int argc, char *argv[]);
-int hexdump(int argc, char *argv[]);
 int mbr(int argc, char *argv[]);
 
 
@@ -39,11 +36,8 @@ cmd_t commands[NUM_CMDS] = {
     {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
     {"mkfs", "", &mkfs},
     {"mount", "", &mount},
-    {"touch", "", &touch},
     {"cd", "", &cd},
     {"ls", "", &ls},
-    {"cat", "", &cat},
-    {"hexdump", "", &hexdump},
     {"mbr", "usage: mbr <bootstrap> <kernel>\r\nCopies bootstrap program to disk boot sector, pointing to kernel program\r\n", &mbr},
 };
 
@@ -185,14 +179,6 @@ int mount(int argc, char *argv[]) {
     return 0;
 }
 
-int touch(int argc, char *argv[]) {
-    if (argc < 2) {
-        println("Not enough arguments");
-        return -1;
-    }
-    return fs_touch(pwd, argv[1]);
-}
-
 int cd(int argc, char *argv[]) {
     if (argc < 2) {
         println("Not enough arguments");
@@ -215,76 +201,6 @@ int ls(int argc, char *argv[]) {
         println(dir[i].filename);
     }
     return n;
-}
-
-int cat(int argc, char *argv[]) {
-    if (argc < 2) {
-        println("Not enough arguments");
-        return -1;
-    }
-    int inode = fs_find_inode(pwd, argv[1]);
-    if (inode < 0) {
-        println("File not found");
-        return -1;
-    }
-    if (fs_is_dir(inode)) {
-        println("Not a regular file");
-        return -2;
-    }
-    int buflen = 256;
-    unsigned char buf[buflen];
-    int pos = 0;
-    int n = fs_read(inode, buf, buflen, pos);
-    do {
-        int written = 0;
-        do {
-            written += tty_write(n - written, buf + written);
-            tty_flush();
-        } while (written < n);
-        pos += n;
-        n = fs_read(inode, buf, buflen, pos);
-    } while (n > 0);
-    return 0;
-}
-
-int hexdump(int argc, char *argv[]) {
-    if (argc < 2) {
-        println("Not enough arguments");
-        return -1;
-    }
-    path_info_t path;
-    int ret = fs_resolve_path(argv[1], &path);
-    if (ret < 0) {
-      return ret;
-    }
-    if (path.inode < 0) {
-        println("File not found");
-        return -1;
-    }
-    if (fs_is_dir(path.inode)) {
-        println("Not a regular file");
-        return -2;
-    }
-    int inbuflen = 8;
-    unsigned int inbuf[inbuflen];
-    unsigned char outbuf[16];
-
-    println(itoa(10, path.inode, outbuf));
-
-    int pos = 0;
-    int n = fs_read(path.inode, (unsigned char *)inbuf, inbuflen*2, pos);
-    do {
-        print(itoa(16, pos, outbuf));
-        print(" ");
-        for (int i = 0; i < (n+1)/2; i++) {
-            print(uitoa(8, inbuf[i], outbuf));
-            print(" ");
-        }
-        pos += n;
-        n = fs_read(path.inode, (unsigned char *)inbuf, inbuflen*2, pos);
-        println("");
-    } while (n > 0);
-    return 0;
 }
 
 int run(int argc, char *argv[]) {

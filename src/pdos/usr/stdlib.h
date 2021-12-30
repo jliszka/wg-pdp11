@@ -5,5 +5,10 @@ int strlen(char * str);
 void print(char * buf);
 void println(char * buf);
 int input(int len, char * buf);
+char * uitoa(int radix, int n, char * dst);
+char * itoa(int radix, int n, char * dst);
+int atoi(char * str);
+int strncmp(char * a, char * b, int n);
+char * strncpy(char * dst, char * src, int n);
 
 #endif
