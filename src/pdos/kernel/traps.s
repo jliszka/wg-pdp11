@@ -102,6 +102,7 @@ trap.exit:
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.read:
+    push r5
 	mfpi 4(r5)			# number of bytes to read
 	pop r0
 
@@ -109,6 +110,7 @@ trap.read:
 	push r0
 	jsr pc, _tty_read	# return value (r0): how many bytes read
 	add $4, sp
+    pop r5
 
 	push r0				# save original value of r0
 
@@ -278,13 +280,16 @@ trap.fseek:
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.fread:
+    push r5
     mfpi 8(r5)          # number of bytes to read
     push $buf           # destination buffer
     mfpi 4(r5)          # file descriptor
     jsr pc, _io_fread   # return value (r0): how many bytes read
     add $6, sp
+    pop r5
 
     push r0             # save original value of r0
+    beq 4$              # no bytes read, return
 
     mfpi 6(r5)          # destination buffer => r1
     pop r1
@@ -315,6 +320,7 @@ trap.fread:
 3$:
     mtpi (r1)+          # copy final word to userspace destination buffer
 
+4$:
     pop r0              # number of bytes read
     jmp ret
 
