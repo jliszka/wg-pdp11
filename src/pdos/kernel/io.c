@@ -13,13 +13,13 @@ typedef struct {
 } fd_t;
 
 #define MAX_FDS 4
-fd_t fd_table[MAX_FDS];
+static fd_t fd_table[MAX_FDS];
 
 int io_reset() {
     for (int i = 0; i < MAX_FDS; i++) {
         fd_table[i].cur_block = -1;
         fd_table[i].pos = 0;
-	fd_table[i].max_pos = 0;
+        fd_table[i].max_pos = 0;
         fd_table[i].mode = 0;
     }
 }
@@ -51,8 +51,14 @@ int io_fopen(char * path, char mode) {
         }
         path_info.inode = fs_touch(path_info.parent_dir_inode, path_info.filename);
     } else if (fs_is_dir(path_info.inode)) {
-        // File must be a regular file.
-        return ERR_IS_A_DIRECTORY;
+        if (mode != 'd') {
+            // Must open a directory with mode 'd'
+            return ERR_IS_A_DIRECTORY;
+        }
+    } else {
+        if (mode == 'd') {
+            return ERR_NOT_A_DIRECTORY;
+        }
     }
 
     int pos = 0;
@@ -99,7 +105,7 @@ int io_fseek(int fd, unsigned int pos) {
     fd_t * fdt = &fd_table[fd];    
     int filesize = fs_filesize(fdt->inode);
     if (pos > filesize && fdt->mode == 'r') {
-      // Don't allow reading past the end of the file.
+        // Don't allow reading past the end of the file.
         pos = filesize;
     }
     fdt->pos = pos;
@@ -110,7 +116,7 @@ int io_fseek(int fd, unsigned int pos) {
 }
 
 int io_fread(int fd, unsigned char * buf, unsigned int len) {
-    if (fd_table[fd].mode != 'r') {
+    if (fd_table[fd].mode != 'r' && fd_table[fd].mode != 'd') {
         return -1;
     }
     
@@ -146,7 +152,7 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
-    if (fd_table[fd].mode != 'w') {
+    if (fd_table[fd].mode != 'w' && fd_table[fd].mode != 'a') {
         return -1;
     }
     
@@ -180,7 +186,7 @@ int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_fflush(int fd) {
-    if (fd_table[fd].mode != 'w') {
+    if (fd_table[fd].mode != 'w' && fd_table[fd].mode != 'a') {
         return -1;
     }
     

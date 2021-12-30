@@ -85,7 +85,6 @@ trap.exit:
     # sp -> r3
 	# We want to ignore the first 4, restore the registers, and then return,
     # effectively simulating the "return" from userexec()
-    halt
 	add $8, sp
 
     pop r5

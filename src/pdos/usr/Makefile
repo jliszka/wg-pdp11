@@ -23,7 +23,7 @@ AOUT2LDA=aout2lda.py
 	$(GCC) $(GCCOPTS) -c $<
 
 # Compile and link a c file into a.out format
-%.aout: %.o stdlib.o sys.s
+%.aout: %.o sys.s stdlib.o
 	$(GCC) $(GCCOPTS) -Ttext 0x2000 -e _start -g -o $@ crt0.s $^
 
 # Convert from a.out format into the tape loader format
@@ -35,7 +35,9 @@ AOUT2LDA=aout2lda.py
 
 ##########################################################
 
-all: hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin
+ls.aout: fs.o
+
+all: hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin
 
 install:
 	cp *.bin /opt/pidp11/systems/pdos/

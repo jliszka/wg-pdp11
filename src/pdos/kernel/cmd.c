@@ -14,7 +14,6 @@ int load(int argc, char *argv[]);
 int mkfs(int argc, char *argv[]);
 int mount(int argc, char *argv[]);
 int cd(int argc, char *argv[]);
-int ls(int argc, char *argv[]);
 int run(int argc, char *argv[]);
 int mbr(int argc, char *argv[]);
 
@@ -37,7 +36,6 @@ cmd_t commands[NUM_CMDS] = {
     {"mkfs", "", &mkfs},
     {"mount", "", &mount},
     {"cd", "", &cd},
-    {"ls", "", &ls},
     {"mbr", "usage: mbr <bootstrap> <kernel>\r\nCopies bootstrap program to disk boot sector, pointing to kernel program\r\n", &mbr},
 };
 
@@ -189,18 +187,6 @@ int cd(int argc, char *argv[]) {
         pwd = inode;
     }
     return inode;
-}
-
-int ls(int argc, char *argv[]) {
-    dirent_t dir[32];
-    int n = fs_read_dir(pwd, 32, dir);
-    unsigned char outbuf[16];
-    for (int i = 0; i < n; i++) {
-        print(itoa(10, dir[i].inode, outbuf));
-        print(" ");
-        println(dir[i].filename);
-    }
-    return n;
 }
 
 int run(int argc, char *argv[]) {
