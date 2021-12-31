@@ -2,9 +2,9 @@
 #define SYS_H
 
 void exit(int status);
-int read(int n, char * buf);
-int write(int n, char * buf);
-void flush();
+void halt();
+int fork();
+int exec(char * path, char * argv[]);
 int fopen(char * path, char mode);
 int fclose(int fd);
 int fseek(int fd, unsigned int pos);

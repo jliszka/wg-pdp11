@@ -42,9 +42,9 @@ buf:
 
 ttable:
 	.word trap.exit		# 0
-	.word trap.read		# 1
-	.word trap.write	# 2
-	.word trap.flush	# 3
+	.word trap.halt		# 1
+	.word trap.fork 	# 2
+	.word trap.exec 	# 3
 	.word trap.fopen	# 4
 	.word trap.fclose	# 5
 	.word trap.fseek	# 6
@@ -94,110 +94,23 @@ trap.exit:
     pop r1
     rts pc
 
-# r5 points to user-space stack:
-#     - destination buffer
-#     - number of bytes to read
-#     - return address for call to syscall stub
-# r5 -> old r5
-trap.read:
-    push r5
-	mfpi 4(r5)			# number of bytes to read
-	pop r0
-
-	push $buf
-	push r0
-	jsr pc, _tty_read	# return value (r0): how many bytes read
-	add $4, sp
-    pop r5
-
-	push r0				# save original value of r0
-
-	mfpi 6(r5)          # destination buffer
-	pop r1
-
-	mov $buf, r2
-	bit r1, $1			# check if the address is even
-	beq 1$
-
-	dec r1
-	mfpi (r1)			# copy bytes from userspace destination buffer to stack
-	mov sp, r3			# use r3 instead of sp because sp can only point to even addresses
-	inc r3
-	br 2$
-
-1$:
-	mfpi (r1)			# copy bytes from userspace destination buffer to stack
-	mov sp, r3
-	movb (r2)+, (r3)+	# overwrite with data from $buf
-	dec r0
-	beq 3$
-
-2$:
-	movb (r2)+, (r3)+
-	dec r0
-	beq 3$
-	mtpi (r1)+			# copy it back to userspace destination buffer
-	br 1$
-3$:
-	mtpi (r1)+			# copy final word to userspace destination buffer
-
-	pop r0				# number of bytes read
-	jmp ret
-
-# r5 points to user-space stack:
-#     - source buffer
-#     - number of bytes to write
-#     - return address for call to syscall stub
-# r5 -> old r5
-trap.write:
-    mfpi 4(r5)          # number of bytes to write
-    pop r0
-    mfpi 6(r5)          # source buffer
-    pop r1
-
-	tst r0				# nothing to write? return
-	beq ret
-
-	cmp r0, $bufsize	# don't copy over more than the size of the buffer
-	ble 4$
-	mov $bufsize, r0
-
-4$:
-	push r0
-	mov $buf, r3
-	bit r1, $1			# check if the address is even
-	beq 1$
-
-	dec r1				# if odd, copy only the first byte
-	mfpi (r1)+
-	pop r2
-	br 2$
-
-1$:
-	mfpi (r1)+			# read a word from the previous address space
-	pop r2
-	movb r2, (r3)+		# copy the low byte to destination buffer
-	dec r0
-	beq 3$
-2$:
-	ash $-8, r2
-	movb r2, (r3)+		# copy the high byte to destination buffer
-	dec r0
-	beq 3$
-	br 1$
-
-3$:
-	pop r0
-	push $buf
-	push r0
-	jsr pc, _tty_write
-	add $4, sp
-
+# No arguments
+trap.halt:
+    halt
 	jmp ret
 
 # No arguments
-trap.flush:
-	jsr pc, _tty_flush
+trap.fork:
+    mov $-1, r0
+	jmp ret
+
+# r5 points to user-space stack:
+#     - arguments (char **)
+#     - path to executable
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.exec:
+    mov $-1, r0
 	jmp ret
 
 # r5 points to user-space stack:

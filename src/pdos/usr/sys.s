@@ -25,9 +25,9 @@ _exit:
 1$:
 	br 1$  	# unreachable
 
-syscall _read, 1
-syscall _write, 2
-syscall _flush, 3
+syscall _halt, 1
+syscall _fork, 2
+syscall _exec, 3
 syscall _fopen, 4
 syscall _fclose, 5
 syscall _fseek, 6
