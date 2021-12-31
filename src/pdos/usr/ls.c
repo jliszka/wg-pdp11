@@ -8,6 +8,11 @@ int main(int argc, char ** argv) {
         dirname = argv[1];
     }
     int fd = opendir(dirname);
+    if (fd < 0) {
+        print("Could not read dir ");
+        println(dirname);
+        return fd;
+    }
 
     dirent_t dir;
     unsigned char buf[16];

@@ -8,27 +8,29 @@ int strlen(char * str) {
 }
 
 void print(char * str) {
-	int len = strlen(str)+1;
-	int written = 0;
-	do {
-		written += write(len - written, str + written);
-	} while (written < len);
+    fprint(STDOUT, str);
 }
 
 void println(char * str) {
-	print(str);
-	write(3, "\r\n");
-	flush();
+    fprintln(STDOUT, str);
+}
+
+void fprint(int fd, char * str) {
+    int len = strlen(str)+1;
+	int written = 0;
+	do {
+		written += fwrite(fd, str + written, len - written);
+	} while (written < len);
+}
+
+void fprintln(int fd, char * str) {
+    fprint(fd, str);
+    fprint(fd, "\r\n");
+    fflush(fd);
 }
 
 int input(int len, char * buf) {
-	int c = read(len, buf);
-	if (c < 2) return c;
-	// byte count includes null terminator
-	while (buf[c-2] != '\r') {
-		c += read(len-c-1, buf+c-1);
-	}
-	return c;
+	return fread(STDIN, buf, len);
 }
 
 char * uitoa(int radix, int n, char * dst) {

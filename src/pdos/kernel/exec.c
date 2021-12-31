@@ -170,17 +170,7 @@ int exec(int code_page, int stack_page, int argc, char *argv[]) {
 
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
 
-    // Set up instructions to switch to user mode just before the user program start address.
-    // The instruction that lives there is:
-    // bis $140000, @#psw
-    // start_address -= 3;
-
-    // Call user program main. It doesn't matter what args we pass here, because those
-    // all end up on the kernel stack, not the user stack. But when the program exits,
-    // we need the return address and arguments to be set up properly.
-    // int (*start)(int, char *[]) = (int (*)(int, char *[]))start_address;
-    // int ret = start(argc, (char **)-ARGV_BUFSIZE);
-
+    // Call user program main.
     int ret = userexec();
 
     vm_user_unmap();

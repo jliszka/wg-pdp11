@@ -1,7 +1,34 @@
 #include "io.h"
 #include "fs.h"
+#include "tty.h"
+#include "ptr.h"
 #include "stdlib.h"
 #include "errno.h"
+
+int io_file_seek(int fd, unsigned int pos);
+int io_file_read(int fd, unsigned char * buf, unsigned int len);
+int io_file_write(int fd, unsigned char * buf, unsigned int len);
+int io_file_flush(int fd);
+
+int io_tty_read(int fd, unsigned char * buf, unsigned int len);
+int io_tty_write(int fd, unsigned char * buf, unsigned int len);
+int io_tty_flush(int fd);
+
+int io_ptr_read(int fd, unsigned char * buf, unsigned int len);
+
+typedef struct {
+    int (*fseek)(int, unsigned int);
+    int (*fread)(int, unsigned char *, unsigned int);
+    int (*fwrite)(int, unsigned char *, unsigned int);
+    int (*fflush)(int);
+} vfile_t;
+
+
+static vfile_t vfile = { &io_file_seek, &io_file_read, &io_file_write, &io_file_flush };
+static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
+    { 0, &io_tty_read, &io_tty_write, &io_tty_flush },
+    { 0, &io_ptr_read, 0, 0 }
+};
 
 typedef struct {
     int inode;
@@ -9,6 +36,7 @@ typedef struct {
     int pos;
     int max_pos;
     char mode;
+    vfile_t * vfile;
     unsigned char buffer[BYTES_PER_SECTOR];
 } fd_t;
 
@@ -22,6 +50,10 @@ int io_reset() {
         fd_table[i].max_pos = 0;
         fd_table[i].mode = 0;
     }
+
+    // Open stdin and stdout
+    io_fopen("/dev/tty", 'r');
+    io_fopen("/dev/tty", 'w');
 }
 
 int io_fopen(char * path, char mode) {
@@ -75,6 +107,13 @@ int io_fopen(char * path, char mode) {
     fdt->mode = mode;
     bzero(fdt->buffer, BYTES_PER_SECTOR);
 
+    int device_type;
+    if (fs_is_device(fdt->inode, &device_type)) {
+        fdt->vfile = &vfile_devs[device_type];
+    } else {
+        fdt->vfile = &vfile;
+    }
+
     return fd;
 }
 
@@ -96,6 +135,14 @@ int io_fclose(int fd) {
 }
 
 int io_fseek(int fd, unsigned int pos) {
+    int (*fn)(int, unsigned int) = fd_table[fd].vfile->fseek;
+    if (fn == 0) {
+        return ERR_NOT_SUPPORTED;
+    }
+    return fn(fd, pos);
+}
+
+int io_file_seek(int fd, unsigned int pos) {
     if (fd >= MAX_FDS) {
         return -1;
     }
@@ -120,6 +167,15 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
         return -1;
     }
     
+    int (*fn)(int, unsigned char *, unsigned int) = fd_table[fd].vfile->fread;
+    if (fn == 0) {
+        return ERR_NOT_SUPPORTED;
+    }
+
+    return fn(fd, buf, len);
+}
+
+int io_file_read(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = &fd_table[fd];
 
     if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
@@ -151,11 +207,28 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
     return len;
 }
 
+int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
+    return tty_read(len, buf);
+}
+
+int io_ptr_read(int fd, unsigned char * buf, unsigned int len) {
+    return ptr_read(len, buf);
+}
+
 int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
     if (fd_table[fd].mode != 'w' && fd_table[fd].mode != 'a') {
         return -1;
     }
     
+    int (*fn)(int, unsigned char *, unsigned int) = fd_table[fd].vfile->fwrite;
+    if (fn == 0) {
+        return ERR_NOT_SUPPORTED;
+    }
+
+    return fn(fd, buf, len);
+}
+
+int io_file_write(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = &fd_table[fd];
 
     if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
@@ -185,11 +258,23 @@ int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
     return len;
 }
 
+int io_tty_write(int fd, unsigned char * buf, unsigned int len) {
+    return tty_write(len, buf);
+}
+
 int io_fflush(int fd) {
     if (fd_table[fd].mode != 'w' && fd_table[fd].mode != 'a') {
-        return -1;
+        return ERR_NOT_SUPPORTED;
     }
     
+    int (*fn)(int) = fd_table[fd].vfile->fflush;
+    if (fn == 0) {
+        return ERR_NOT_SUPPORTED;
+    }
+    return fn(fd);
+}
+
+int io_file_flush(int fd) {
     fd_t * fdt = &fd_table[fd];
 
     // Flush the current block if valid    
@@ -203,5 +288,10 @@ int io_fflush(int fd) {
         }
     }
     
+    return 0;
+}
+
+int io_tty_flush(int fd) {
+    tty_flush();
     return 0;
 }

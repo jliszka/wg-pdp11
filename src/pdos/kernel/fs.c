@@ -27,6 +27,8 @@ static dirent_t dir[BYTES_PER_SECTOR];
 
 extern unsigned int pwd;
 
+void _fs_mkdev();
+
 int fs_init() {
     fs_mount();
 }
@@ -72,6 +74,8 @@ int fs_mkfs() {
 
 	_fs_write_sector(ROOT_DIR_SECTOR, (unsigned char *)root_dir);
 
+    _fs_mkdev();
+
 	return ROOT_DIR_INODE;
 }
 
@@ -83,6 +87,18 @@ int fs_is_dir(int inode) {
 		return 0;
 	}
 	return 1;
+}
+
+int fs_is_device(int inode, int * dev) {
+    if (inode_table[inode].refcount == 0) {
+        return 0;
+    }
+    int flags = inode_table[inode].flags;
+    if (flags & INODE_FLAG_DEVICE) {
+        *dev = flags & ~INODE_FLAG_DEVICE;
+        return 1;
+    }
+    return 0;
 }
 
 int fs_filesize(int inode) {
@@ -219,11 +235,13 @@ int fs_touch(int parent_dir_inode, char * filename) {
 }
 
 int fs_resolve_path(char * path, path_info_t * path_info) {
-	char * path_parts[8];
+    char * path_parts[8];
 
-	int nparts = strntok(path, '/', path_parts, 8);
+    char buf[64];
+    strncpy(buf, path, 64);
+    int nparts = strntok(buf, '/', path_parts, 8);
 
-	int i = 0;
+    int i = 0;
 	int dir_inode = pwd;
 	if (path[0] == '/') {
 		dir_inode = ROOT_DIR_INODE;
@@ -532,4 +550,13 @@ int fs_rmdir(char * target) {
 	_fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
 
 	return 0;
+}
+
+void _fs_mkdev() {
+    int dev_inode = fs_mkdir("/dev");
+    dirent_t * dev_dir = _fs_load_dir(dev_inode);
+    _fs_mk(dev_inode, dev_dir, "tty", INODE_FLAG_DEVICE | VFILE_DEV_TTY);
+    _fs_mk(dev_inode, dev_dir, "ptr", INODE_FLAG_DEVICE | VFILE_DEV_PTR);
+    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
+    fs_mkdir("/bin");
 }

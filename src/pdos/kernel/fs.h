@@ -32,6 +32,7 @@ int fs_write(int inode, unsigned char * buf, int len, int offset);
 int fs_read(int inode, unsigned char * buf, int len, int offset);
 int fs_read_dir(int dir_inode, int buflen, dirent_t * buf);
 int fs_is_dir(int inode);
+int fs_is_device(int inode, int * device_type);
 int fs_filesize(int inode);
 int fs_link(char * src, char * dst);
 int fs_unlink(char * target);

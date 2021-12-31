@@ -84,11 +84,6 @@ int strntok(char * str, char delim, char * tokens[], int ntokens)
 {
     int token_count;
     for (token_count = 0; token_count < ntokens; token_count++) {
-        // Find the beginnin of the token.
-        while (*str == delim && *str != 0) str++;
-        // End of the string! Return.
-        if (*str == 0) return token_count;
-        // Found the beginning of a token.
         tokens[token_count] = str;
 
         // Find the end of the token.

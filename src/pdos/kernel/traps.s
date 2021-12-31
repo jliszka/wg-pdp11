@@ -211,7 +211,6 @@ trap.fopen:
     jsr pc, readbuf
     add $4, sp
 
-3$:
     mfpi 6(r5)          # mode
     push $buf
     jsr pc, _io_fopen

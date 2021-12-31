@@ -51,7 +51,7 @@ static unsigned int next_page = 8;
 
 int execute(char * input) {
     char * argv[16];
-    int argc = strntok(input, ' ', argv, 8);
+    int argc = strntok(input, ' ', argv, 16);
     if (argc > 0) {
         for (int i = 0; i < NUM_CMDS; i++) {
             if (commands[i].command != 0 && strncmp(argv[0], commands[i].command, 16) == 0) {
