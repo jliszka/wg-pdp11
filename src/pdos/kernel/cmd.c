@@ -6,6 +6,7 @@
 #include "fs.h"
 #include "io.h"
 #include "rk.h"
+#include "vm.h"
 #include "errno.h"
 
 int help(int argc, char *argv[]);
@@ -42,7 +43,6 @@ typedef struct prog {
 
 unsigned int pwd = ROOT_DIR_INODE;
 static unsigned int root_dir = ROOT_DIR_INODE;
-static unsigned int next_page = 8;
 
 int execute(char * input) {
     char * argv[16];
@@ -144,14 +144,19 @@ int run(int argc, char *argv[]) {
         return fd;
     }
 
-    int code_page = next_page;
-    int stack_page = next_page+1;
+    int code_page = vm_allocate_page();
+    int stack_page = vm_allocate_page();
     int ret = load_file(fd, code_page);
     io_fclose(fd);
 
     if (ret != 0) return ret;
 
-    return exec(code_page, stack_page, argc, argv);
+    ret = exec(code_page, stack_page, argc, argv);
+
+    vm_free_page(code_page);
+    vm_free_page(stack_page);
+
+    return ret;
 }
 
 int mbr(int argc, char *argv[]) {

@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "rk.h"
 #include "stdlib.h"
+#include "bitvec.h"
 #include "errno.h"
 
 /**
@@ -109,36 +110,23 @@ int fs_filesize(int inode) {
 }
 
 int _fs_allocate_sector() {
-	unsigned char buf[BYTES_PER_SECTOR];
-	_fs_read_sector(FREE_SECTOR_MAP, buf);
-	int i;
-	for (i = 0; i < BYTES_PER_SECTOR; i++) {
-		if (buf[i] != 0xff) break;
-	}
-	char m = buf[i];
-	int j;
-	for (j = 0; j < 8; j++) {
-		if ((m & 1) == 0) break;
-		m >>= 1;
-	}
-	buf[i] |= 1 << j;
-	_fs_write_sector(FREE_SECTOR_MAP, buf);
-
-	return (i << 3) | j;
+    unsigned char buf[BYTES_PER_SECTOR];
+    _fs_read_sector(FREE_SECTOR_MAP, buf);
+    int sector = bitvec_allocate(buf, BYTES_PER_SECTOR);
+    _fs_write_sector(FREE_SECTOR_MAP, buf);
+    return sector;
 }
 
 int _fs_free_sector(unsigned int sector) {
-	if (sector == 0) {
-		// This was a hole, nothing to do.
-		return 0;
-	}
+    if (sector == 0) {
+        // This was a hole, nothing to do.
+        return 0;
+    }
 
-	unsigned char buf[BYTES_PER_SECTOR];
-	_fs_read_sector(FREE_SECTOR_MAP, buf);
-
-	buf[sector / 8] &= ~(1 << (sector % 8));
-
-	_fs_write_sector(FREE_SECTOR_MAP, buf);
+    unsigned char buf[BYTES_PER_SECTOR];
+    _fs_read_sector(FREE_SECTOR_MAP, buf);
+    bitvec_free(sector, buf);
+    _fs_write_sector(FREE_SECTOR_MAP, buf);
 }
 
 dirent_t * _fs_load_dir(int dir_inode) {

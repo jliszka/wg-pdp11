@@ -1,4 +1,5 @@
 #include "vm.h"
+#include "bitvec.h"
 
 #define MMR0 0177572
 #define MMR3 0172516
@@ -15,8 +16,31 @@
 #define VM_ENABLE 1
 #define ADDRESSING_22_BIT 020
 
+// 22 bits of address space (4MB)
+// 13 bits per 8kb page
+// 9 bits of pages => 512 8kb pages
+// 64 bytes to store a 512-bit bit vector
+#define PAGE_BV_MAX 64
+static unsigned char free_pages[PAGE_BV_MAX];
+
+int vm_allocate_page() {
+    return bitvec_allocate(free_pages, PAGE_BV_MAX);
+}
+
+void vm_free_page(int page) {
+    bitvec_free(page, free_pages);
+}
 
 void vm_init() {
+
+    // Clear the free memory page bit vector.
+    for (int i = 0; i < PAGE_BV_MAX; i++) {
+        free_pages[i] = 0;
+    }
+    // Reserve the first 8 pages and the last page for the kernel.
+    free_pages[0] = 0xff;
+    free_pages[PAGE_BV_MAX-1] = 0x80;
+
     volatile int * kernel_par = (int *)KERNEL_PAR;
     volatile int * kernel_pdr = (int *)KERNEL_PDR;
 

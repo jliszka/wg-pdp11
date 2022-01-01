@@ -9,5 +9,6 @@
 #define ERR_BAD_SECTOR -6
 #define ERR_DIRECTORY_NOT_EMPTY -7
 #define ERR_NOT_SUPPORTED -8
+#define ERR_NO_FREE_BLOCK -9
 
 #endif

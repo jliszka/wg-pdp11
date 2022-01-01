@@ -5,6 +5,8 @@
 #define vm_page_block_number(page) ((page) << 7)
 
 void vm_init();
+int vm_allocate_page();
+void vm_free_page(int page);
 void vm_map_kernel_page(int page, unsigned int physical_block_number);
 void vm_unmap_kernel_page(int page);
 void vm_user_init(unsigned int code_block_number, unsigned int stack_block_number);
