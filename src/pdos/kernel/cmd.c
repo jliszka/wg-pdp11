@@ -4,15 +4,13 @@
 #include "stdio.h"
 #include "exec.h"
 #include "fs.h"
+#include "io.h"
 #include "rk.h"
 #include "errno.h"
 
 int help(int argc, char *argv[]);
 int echo(int argc, char *argv[]);
-int halt(int argc, char *argv[]);
-int load(int argc, char *argv[]);
 int mkfs(int argc, char *argv[]);
-int mount(int argc, char *argv[]);
 int cd(int argc, char *argv[]);
 int run(int argc, char *argv[]);
 int mbr(int argc, char *argv[]);
@@ -31,10 +29,7 @@ typedef struct cmd {
 cmd_t commands[NUM_CMDS] = {
     {"help", "usage: help\r\nShows all commands and their usage\r\n", &help},
     {"echo", "usage: echo <arg1> <arg2> <arg3>\r\nEchos input arguments to the output\r\n", &echo},
-    {"load", "usage: load <name>, [<name>...]\r\nSaves a series of programs from the tape reader device to the disk with the given names\r\n", &load},
-    {"halt", "usage: halt\r\nHalts execution\r\n", &halt},
     {"mkfs", "", &mkfs},
-    {"mount", "", &mount},
     {"cd", "", &cd},
     {"mbr", "usage: mbr <bootstrap> <kernel>\r\nCopies bootstrap program to disk boot sector, pointing to kernel program\r\n", &mbr},
 };
@@ -113,66 +108,8 @@ int echo(int argc, char *argv[])
     return 0;
 }
 
-//
-// Halt command
-//
-int halt(int argc, char *argv[]) {
-    asm("halt");
-    return 0;
-}
-
-//
-// Load command
-//
-int load(int argc, char *argv[]) {
-    for (int i = 1; i < argc; i++) {
-        print("Attach ");
-        print(argv[i]);
-        println("...");
-        asm("halt");
-
-        int inode = fs_find_inode(pwd, argv[i]);
-        if (inode == ERR_FILE_NOT_FOUND) {
-            inode = fs_touch(pwd, argv[i]);
-        } else if (inode < 0) {
-            return inode;
-        } else if (fs_is_dir(inode)) {
-            println("File is a directory");
-            return ERR_IS_A_DIRECTORY;
-        }
-
-        unsigned char buf[256];
-        int pos = 0;
-        while (ptr_has_next()) {
-            buf[pos++ % 256] = ptr_next();
-            if (pos % 256 == 0) {
-                int ret = fs_write(inode, buf, 256, pos - 256);
-                if (ret < 0) {
-                    return ret;
-                }
-            }
-        }
-        int remaining = pos % 256;
-        if (remaining > 0) {
-            int ret = fs_write(inode, buf, remaining, pos - remaining);
-            if (ret < 0) {
-                return ret;
-            }
-        }
-        print(itoa(10, pos, buf));
-        println(" bytes coped.");
-    }
-    return 0;
-}
-
 int mkfs(int argc, char *argv[]) {
     root_dir = fs_mkfs();
-    pwd = root_dir;
-    return 0;
-}
-
-int mount(int argc, char *argv[]) {
-    root_dir = fs_mount();
     pwd = root_dir;
     return 0;
 }
@@ -195,29 +132,23 @@ int run(int argc, char *argv[]) {
         return -1;
     }
 
-    int inode;
-    path_info_t path_info;
-    int ret = fs_resolve_path(argv[0], &path_info);
-    if (ret < 0 || path_info.inode == 0) {
-        int bin_inode = fs_find_inode(root_dir, "bin");
-        if (bin_inode > 0) {
-            inode = fs_find_inode(bin_inode, argv[0]);
-        }
-        if (inode < 0) {
-            println("Command not found");
-            return ERR_FILE_NOT_FOUND;
-        }
-    } else {
-        inode = path_info.inode;
+    int fd = io_fopen(argv[0], 'r');
+    if (fd == ERR_FILE_NOT_FOUND) {
+        char buf[64];
+        strncpy(buf, "/bin/", 6);
+        strncpy(buf+5, argv[0], 64-5-1);
+        fd = io_fopen(buf, 'r');
     }
-    if (fs_is_dir(inode)) {
-        println("Not a regular file");
-        return -2;
+    if (fd < 0) {
+        println("Command not found");
+        return fd;
     }
 
     int code_page = next_page;
     int stack_page = next_page+1;
-    ret = load_disk(inode, code_page);
+    int ret = load_file(fd, code_page);
+    io_fclose(fd);
+
     if (ret != 0) return ret;
 
     return exec(code_page, stack_page, argc, argv);

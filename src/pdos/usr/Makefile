@@ -37,7 +37,7 @@ AOUT2LDA=aout2lda.py
 
 ls.aout: fs.o
 
-all: hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin
+all: hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin
 
 install:
 	cp *.bin /opt/pidp11/systems/pdos/

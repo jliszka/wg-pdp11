@@ -83,7 +83,7 @@ char * strncpy(char * dst, char * src, int n)
 int strntok(char * str, char delim, char * tokens[], int ntokens)
 {
     int token_count;
-    for (token_count = 0; token_count < ntokens; token_count++) {
+    for (token_count = 0; (token_count < ntokens) && (*str != 0); token_count++) {
         tokens[token_count] = str;
 
         // Find the end of the token.
