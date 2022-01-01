@@ -4,6 +4,7 @@
 #include "ptr.h"
 #include "stdlib.h"
 #include "errno.h"
+#include "kmalloc.h"
 
 int io_file_seek(int fd, unsigned int pos);
 int io_file_read(int fd, unsigned char * buf, unsigned int len);
@@ -16,31 +17,13 @@ int io_tty_flush(int fd);
 
 int io_ptr_read(int fd, unsigned char * buf, unsigned int len);
 
-typedef struct {
-    int (*fseek)(int, unsigned int);
-    int (*fread)(int, unsigned char *, unsigned int);
-    int (*fwrite)(int, unsigned char *, unsigned int);
-    int (*fflush)(int);
-} vfile_t;
-
-
 static vfile_t vfile = { &io_file_seek, &io_file_read, &io_file_write, &io_file_flush };
 static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
     { 0, &io_tty_read, &io_tty_write, &io_tty_flush },
     { 0, &io_ptr_read, 0, 0 }
 };
 
-typedef struct {
-    int inode;
-    int cur_block;
-    int pos;
-    int max_pos;
-    char mode;
-    vfile_t * vfile;
-    unsigned char buffer[BYTES_PER_SECTOR];
-} fd_t;
-
-#define MAX_FDS 4
+#define MAX_FDS 8
 static fd_t fd_table[MAX_FDS];
 
 int io_reset() {
@@ -105,13 +88,15 @@ int io_fopen(char * path, char mode) {
     fdt->pos = pos;
     fdt->max_pos = pos;
     fdt->mode = mode;
-    bzero(fdt->buffer, BYTES_PER_SECTOR);
 
     int device_type;
     if (fs_is_device(fdt->inode, &device_type)) {
         fdt->vfile = &vfile_devs[device_type];
+        fdt->buffer = 0;
     } else {
         fdt->vfile = &vfile;
+        fdt->buffer = kmalloc();
+        bzero(fdt->buffer, BYTES_PER_SECTOR);
     }
 
     return fd;
@@ -131,6 +116,12 @@ int io_fclose(int fd) {
     }
     
     fdt->mode = 0;
+
+    if (fdt->buffer != 0) {
+        kfree(fdt->buffer);
+        fdt->buffer = 0;
+    }
+
     return 0;
 }
 

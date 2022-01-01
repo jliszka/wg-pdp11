@@ -23,7 +23,7 @@
 
 static inode_t inode_table[INODES_PER_SECTOR];
 static dirent_t root_dir[DIRENTS_PER_SECTOR];
-static dirent_t dir[BYTES_PER_SECTOR];
+static dirent_t dir[DIRENTS_PER_SECTOR];
 
 extern unsigned int pwd;
 

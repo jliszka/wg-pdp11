@@ -19,33 +19,38 @@
 void vm_init() {
     volatile int * kernel_par = (int *)KERNEL_PAR;
     volatile int * kernel_pdr = (int *)KERNEL_PDR;
-    volatile int * user_par = (int *)USER_PAR;
-    volatile int * user_pdr = (int *)USER_PDR;
 
     *((volatile unsigned int *)MMR0) &= ~VM_ENABLE;
 
-    for (int i = 0; i < 8; i++) {
-        kernel_par[i] = 0;
-        kernel_pdr[i] = PDR_NON_RESIDENT;
-        user_par[i] = 0;
-        user_pdr[i] = PDR_NON_RESIDENT;
-    }
-
+    // Code
     kernel_par[0] = vm_page_block_number(0);
-    kernel_pdr[0] = PDR_READ_WRITE;
+    kernel_pdr[0] = PDR_READ_ONLY;
 
+    // Code
     kernel_par[1] = vm_page_block_number(1);
-    kernel_pdr[1] = PDR_READ_WRITE;
+    kernel_pdr[1] = PDR_READ_ONLY;
 
+    // Heap
     kernel_par[2] = vm_page_block_number(2);
     kernel_pdr[2] = PDR_READ_WRITE;
 
-    kernel_par[3] = vm_page_block_number(3);
-    kernel_pdr[3] = PDR_READ_WRITE;
+    // 3: reserved for mapping between user processes
+    kernel_par[3] = 0;
+    kernel_pdr[3] = PDR_NON_RESIDENT;
 
+    // 4: reserved for mapping between user processes
+    kernel_par[4] = 0;
+    kernel_pdr[4] = PDR_NON_RESIDENT;
+
+    // 5: reserved for stack
+    kernel_par[5] = 0;
+    kernel_pdr[5] = PDR_NON_RESIDENT;
+
+    // Stack
     kernel_par[6] = vm_page_block_number(6);
     kernel_pdr[6] = PDR_READ_WRITE;
 
+    // Unibus
     kernel_par[7] = vm_page_block_number(0777);
     kernel_pdr[7] = PDR_READ_WRITE;
 
