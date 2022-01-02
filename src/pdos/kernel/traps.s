@@ -57,8 +57,11 @@ ttable:
 	.word trap.rmdir	# 13
 
 
-# "Reverse" trap to jump to user mode program
+# "Reverse" trap to jump to user mode program. Args:
+#   - user mode stack pointer
 _userexec:
+    mov 2(sp), r0       # user mode stack pointer
+
     push r1
     push r2
     push r3

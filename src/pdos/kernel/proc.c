@@ -12,7 +12,7 @@
 #define MAX_PROCS 16
 #define ARGV_BUFSIZE 64
 
-extern int userexec();
+extern int userexec(unsigned int sp);
 
 typedef struct {
     unsigned char code_page;
@@ -134,6 +134,7 @@ int proc_dup(int pid) {
 void proc_free(int pid) {
     vm_free_page(ptable[pid].code_page);
     vm_free_page(ptable[pid].stack_page);
+    vm_user_unmap();
 }
 
 int proc_exec(int argc, char *argv[]) {
@@ -164,12 +165,13 @@ int proc_exec(int argc, char *argv[]) {
     vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(pt->stack_page));
 
     // Set up user stack
-    unsigned int * stack = (unsigned int *)(vm_page_base_address(KERNEL_MAPPING_PAGE + 1) - ARGV_BUFSIZE - 4);
-    *stack++ = argc;
-    *stack++ = -ARGV_BUFSIZE;
+    unsigned int stack = -ARGV_BUFSIZE - 2 * sizeof(int);
+    unsigned int * p = (unsigned int *)(stack + vm_page_base_address(KERNEL_MAPPING_PAGE + 1));
+    *p++ = argc;
+    *p++ = -ARGV_BUFSIZE;
 
     // Copy argv to the stack page in user space
-    char ** user_argv = (char **)stack;
+    char ** user_argv = (char **)p;
     char * dst = (char *)(user_argv + argc);
     for (int i = 0; i < argc; i++) {
         user_argv[i] = (char *)((dst - (char *)user_argv) - ARGV_BUFSIZE);
@@ -179,10 +181,5 @@ int proc_exec(int argc, char *argv[]) {
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
 
     // Call user program main.
-    ret = userexec();
-
-    vm_user_unmap();
-
-    return ret;
-
+    return userexec(stack);
 }

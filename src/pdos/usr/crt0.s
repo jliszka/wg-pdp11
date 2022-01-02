@@ -15,7 +15,7 @@
 #####         call C main() function
 #############################################################################*
 _start:
-    mov $0177674, sp
+    mov r0, sp    # initial stack pointer passed in through r0
     jsr pc,_main
     mov r0,-(sp)  # push return code
     jsr pc,_exit  # exit
