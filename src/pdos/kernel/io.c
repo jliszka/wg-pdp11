@@ -1,5 +1,6 @@
 #include "io.h"
 #include "fs.h"
+#include "proc.h"
 #include "tty.h"
 #include "ptr.h"
 #include "stdlib.h"
@@ -23,36 +24,10 @@ static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
     { 0, &io_ptr_read, 0, 0 }
 };
 
-#define MAX_FDS 8
-static fd_t fd_table[MAX_FDS];
-
 int io_reset() {
-    for (int i = 0; i < MAX_FDS; i++) {
-        fd_table[i].cur_block = -1;
-        fd_table[i].pos = 0;
-        fd_table[i].max_pos = 0;
-        fd_table[i].mode = 0;
-    }
-
-    // Open stdin and stdout
-    io_fopen("/dev/tty", 'r');
-    io_fopen("/dev/tty", 'w');
 }
 
 int io_fopen(char * path, char mode) {
-    // Find a free file descriptor entry
-    int fd;
-    for (fd = 0; fd < MAX_FDS; fd++) {
-        if (fd_table[fd].mode == 0) {
-            break;
-        }
-    }
-    if (fd == MAX_FDS) {
-        // Max fds open
-        return ERR_OUT_OF_FDS;
-    }
-
-
     path_info_t path_info;
     int ret = fs_resolve_path(path, &path_info);
     if (ret < 0) {
@@ -82,7 +57,11 @@ int io_fopen(char * path, char mode) {
     }
 
     // Now that everything checks out, allocate the fd.
-    fd_t * fdt = &fd_table[fd];
+    int fd;
+    fd_t * fdt = proc_fd_alloc(&fd);
+    if (fdt == 0) {
+        return ERR_OUT_OF_FDS;
+    }
     fdt->inode = path_info.inode;
     fdt->cur_block = -1;
     fdt->pos = pos;
@@ -103,13 +82,9 @@ int io_fopen(char * path, char mode) {
 }
 
 int io_fclose(int fd) {
-    if (fd > MAX_FDS) {
-        return -1;
-    }
-    
     io_fflush(fd);
 
-    fd_t * fdt = &fd_table[fd];
+    fd_t * fdt = proc_fd(fd);
 
     if (fdt->mode == 0) {
         return -2;
@@ -126,7 +101,8 @@ int io_fclose(int fd) {
 }
 
 int io_fseek(int fd, unsigned int pos) {
-    int (*fn)(int, unsigned int) = fd_table[fd].vfile->fseek;
+    fd_t * fdt = proc_fd(fd);
+    int (*fn)(int, unsigned int) = fdt->vfile->fseek;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
@@ -134,13 +110,10 @@ int io_fseek(int fd, unsigned int pos) {
 }
 
 int io_file_seek(int fd, unsigned int pos) {
-    if (fd >= MAX_FDS) {
-        return -1;
-    }
-    if (fd_table[fd].mode == 0) {
+    fd_t * fdt = proc_fd(fd);
+    if (fdt->mode == 0) {
         return -2;
     }
-    fd_t * fdt = &fd_table[fd];    
     int filesize = fs_filesize(fdt->inode);
     if (pos > filesize && fdt->mode == 'r') {
         // Don't allow reading past the end of the file.
@@ -154,11 +127,12 @@ int io_file_seek(int fd, unsigned int pos) {
 }
 
 int io_fread(int fd, unsigned char * buf, unsigned int len) {
-    if (fd_table[fd].mode != 'r' && fd_table[fd].mode != 'd') {
+    fd_t * fdt = proc_fd(fd);
+    if (fdt->mode != 'r' && fdt->mode != 'd') {
         return -1;
     }
     
-    int (*fn)(int, unsigned char *, unsigned int) = fd_table[fd].vfile->fread;
+    int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->fread;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
@@ -167,7 +141,7 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_file_read(int fd, unsigned char * buf, unsigned int len) {
-    fd_t * fdt = &fd_table[fd];
+    fd_t * fdt = proc_fd(fd);
 
     if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
         // Load a new block if needed
@@ -207,11 +181,12 @@ int io_ptr_read(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
-    if (fd_table[fd].mode != 'w' && fd_table[fd].mode != 'a') {
+    fd_t * fdt = proc_fd(fd);
+    if (fdt->mode != 'w' && fdt->mode != 'a') {
         return -1;
     }
     
-    int (*fn)(int, unsigned char *, unsigned int) = fd_table[fd].vfile->fwrite;
+    int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->fwrite;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
@@ -220,7 +195,7 @@ int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_file_write(int fd, unsigned char * buf, unsigned int len) {
-    fd_t * fdt = &fd_table[fd];
+    fd_t * fdt = proc_fd(fd);
 
     if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
         // Flush the old block if valid
@@ -254,11 +229,12 @@ int io_tty_write(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_fflush(int fd) {
-    if (fd_table[fd].mode != 'w' && fd_table[fd].mode != 'a') {
+    fd_t * fdt = proc_fd(fd);
+    if (fdt->mode != 'w' && fdt->mode != 'a') {
         return ERR_NOT_SUPPORTED;
     }
     
-    int (*fn)(int) = fd_table[fd].vfile->fflush;
+    int (*fn)(int) = fdt->vfile->fflush;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
@@ -266,7 +242,7 @@ int io_fflush(int fd) {
 }
 
 int io_file_flush(int fd) {
-    fd_t * fdt = &fd_table[fd];
+    fd_t * fdt = proc_fd(fd);
 
     // Flush the current block if valid    
     if (fdt->cur_block >= 0) {

@@ -1,6 +1,10 @@
 #ifndef VM_H
 #define VM_H
 
+#define KERNEL_MAPPING_PAGE 3u
+#define KERNEL_MAPPING_PAGE2 4u
+
+#define VM_PAGE_SIZE 8192
 #define vm_page_base_address(page) ((page) << 13)
 #define vm_page_block_number(page) ((page) << 7)
 

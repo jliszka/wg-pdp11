@@ -8,6 +8,7 @@ typedef struct {
     int (*fflush)(int);
 } vfile_t;
 
+
 typedef struct {
     int inode;
     int cur_block;

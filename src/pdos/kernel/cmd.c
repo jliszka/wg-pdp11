@@ -2,7 +2,7 @@
 #include "ptr.h"
 #include "stdlib.h"
 #include "stdio.h"
-#include "exec.h"
+#include "proc.h"
 #include "fs.h"
 #include "io.h"
 #include "rk.h"
@@ -127,34 +127,15 @@ int cd(int argc, char *argv[]) {
 }
 
 int run(int argc, char *argv[]) {
-    if (argc < 1) {
-        println("Not enough arguments");
-        return -1;
+    int pid = proc_create();
+    if (pid < 0) {
+        println("Could not create process");
+        return pid;
     }
 
-    int fd = io_fopen(argv[0], 'r');
-    if (fd == ERR_FILE_NOT_FOUND) {
-        char buf[64];
-        strncpy(buf, "/bin/", 6);
-        strncpy(buf+5, argv[0], 64-5-1);
-        fd = io_fopen(buf, 'r');
-    }
-    if (fd < 0) {
-        println("Command not found");
-        return fd;
-    }
+    int ret = proc_exec(argc, argv);
 
-    int code_page = vm_allocate_page();
-    int stack_page = vm_allocate_page();
-    int ret = load_file(fd, code_page);
-    io_fclose(fd);
-
-    if (ret != 0) return ret;
-
-    ret = exec(code_page, stack_page, argc, argv);
-
-    vm_free_page(code_page);
-    vm_free_page(stack_page);
+    proc_free(pid);
 
     return ret;
 }

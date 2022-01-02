@@ -1,15 +1,8 @@
-#include "exec.h"
-#include "stdlib.h"
+#include "load.h"
 #include "stdio.h"
-#include "ptr.h"
 #include "vm.h"
-#include "fs.h"
 #include "io.h"
-
-#define KERNEL_MAPPING_PAGE 4
-#define ARGV_BUFSIZE 64
-
-extern int userexec();
+#include "errno.h"
 
 int load_file(int fd, int code_page) {
     char buf[32];
@@ -89,37 +82,4 @@ int load_file(int fd, int code_page) {
     return ret;
 }
 
-int exec(int code_page, int stack_page, int argc, char *argv[]) {
-    unsigned int * start_address = (unsigned int *)vm_page_base_address(1);
-
-    // Set up user page tables
-    vm_user_init(vm_page_block_number(code_page), vm_page_block_number(stack_page));
-
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(stack_page));
-
-    // Initialize file descriptor tables
-    io_reset();
-
-    // Set up user stack
-    unsigned int * stack = (unsigned int *)(vm_page_base_address(KERNEL_MAPPING_PAGE + 1) - ARGV_BUFSIZE - 4);
-    *stack++ = argc;
-    *stack++ = -ARGV_BUFSIZE;
-
-    // Copy argv to the stack page in user space
-    char ** user_argv = (char **)stack;
-    char * dst = (char *)(user_argv + argc);
-    for (int i = 0; i < argc; i++) {
-        user_argv[i] = (char *)((dst - (char *)user_argv) - ARGV_BUFSIZE);
-        dst = strncpy(dst, argv[i], ARGV_BUFSIZE);
-    }
-
-    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
-
-    // Call user program main.
-    int ret = userexec();
-
-    vm_user_unmap();
-
-    return ret;
-}
 
