@@ -41,8 +41,10 @@ typedef struct prog {
     unsigned int stack_page;
 } prog_t;
 
-unsigned int pwd = ROOT_DIR_INODE;
 static unsigned int root_dir = ROOT_DIR_INODE;
+
+unsigned int pwd = ROOT_DIR_INODE;
+static char path[32] = {'/', 0};
 
 int execute(char * input) {
     char * argv[16];
@@ -66,8 +68,7 @@ void cmd()
 
     while (1)
     {
-        print("pdos:");
-        print(itoa(10, pwd, buf));
+        print(path);
         print("> ");
         tty_flush();
 
@@ -119,11 +120,21 @@ int cd(int argc, char *argv[]) {
         println("Not enough arguments");
         return -1;
     }
-    int inode = fs_find_inode(pwd, argv[1]);
-    if (inode >= 0 && fs_is_dir(inode)) {
-        pwd = inode;
+    path_info_t path_info;
+    int ret = fs_resolve_path(argv[1], &path_info);
+    if (ret < 0) {
+        return ret;
     }
-    return inode;
+    if (!fs_is_dir(path_info.inode)) {
+        println("Not a directory");
+        return ERR_NOT_A_DIRECTORY;
+    }
+
+    pwd = path_info.inode;
+    path[0] = 0;
+    fs_build_path(pwd, path, sizeof(path));
+
+    return pwd;
 }
 
 int run(int argc, char *argv[]) {

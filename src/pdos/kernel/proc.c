@@ -176,6 +176,7 @@ int proc_exec(int argc, char *argv[]) {
     for (int i = 0; i < argc; i++) {
         user_argv[i] = (char *)((dst - (char *)user_argv) - ARGV_BUFSIZE);
         dst = strncpy(dst, argv[i], ARGV_BUFSIZE);
+        dst++;
     }
 
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);

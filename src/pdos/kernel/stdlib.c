@@ -76,7 +76,7 @@ char * strncpy(char * dst, char * src, int n)
     {
         *dst++ = *src++;
     }
-    *dst++ = 0;
+    *dst = 0;
     return dst;
 }
 
@@ -114,3 +114,7 @@ int strlen(char * str) {
     return len;
 }
 
+char * strncat(char * dst, char * src, int n) {
+    int len = strlen(dst);
+    return strncpy(dst+len, src, n - len);
+}

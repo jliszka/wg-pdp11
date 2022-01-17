@@ -37,6 +37,7 @@ int fs_filesize(int inode);
 int fs_link(char * src, char * dst);
 int fs_unlink(char * target);
 int fs_rmdir(char * dirname);
+char * fs_build_path(int dir_inode, char * buf, int len);
 
 #define fs_read_block(inode, blockno, dst) \
 	fs_read(inode, dst, BYTES_PER_SECTOR, fs_pos_from_block(blockno))

@@ -161,6 +161,46 @@ int fs_find_inode(int parent_dir_inode, char * filename) {
 	return _fs_find_inode(parent_dir_inode, parent_dir, filename, &index);
 }
 
+dirent_t * _fs_find_dirent(int parent_dir_inode, int inode) {
+    dirent_t * parent_dir = _fs_load_dir(parent_dir_inode);
+    if (parent_dir == 0) {
+        return 0;
+    }
+	int dirent_count = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
+	for (int i = 0; i < dirent_count; i++) {
+		if (parent_dir[i].inode == inode) {
+            return &parent_dir[i];
+        }
+    }
+    return 0;
+}
+
+char * fs_build_path(int dir_inode, char * buf, int len) {
+    if (dir_inode == ROOT_DIR_INODE) {
+        return strncpy(buf, "/", len);
+    }
+    int parent_dir_inode = fs_find_inode(dir_inode, "..");
+    if (parent_dir_inode < 0) {
+        return 0;
+    }
+    char * tail = fs_build_path(parent_dir_inode, buf, len);
+    if (tail == 0) {
+        return 0;
+    }
+    int parent_len = (int)(tail - buf);
+    if (*(tail-1) != '/') {
+        tail = strncpy(tail, "/", len-parent_len);
+        parent_len++;
+    }
+
+    dirent_t * dir = _fs_find_dirent(parent_dir_inode, dir_inode);
+    if (dir == 0) {
+        return 0;
+    }
+
+    return strncpy(tail, dir->filename, len-parent_len);
+}
+
 int _fs_add_dirent(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigned char flags, int inode) {
 	// Find an empty slot in the parent directory table
 	int next_dirent_idx = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
@@ -224,6 +264,15 @@ int fs_touch(int parent_dir_inode, char * filename) {
 
 int fs_resolve_path(char * path, path_info_t * path_info) {
     char * path_parts[8];
+
+    if (strncmp(path, "/", 2) == 0) {
+        // Special case for root dir
+        path_info->inode = ROOT_DIR_INODE;
+        path_info->parent_dir_inode = ROOT_DIR_INODE;
+        path_info->filename[0] = 0;
+        path_info->index = 0;
+        return 0;
+    }
 
     char buf[64];
     strncpy(buf, path, 64);
