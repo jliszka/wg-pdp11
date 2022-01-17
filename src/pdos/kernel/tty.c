@@ -14,6 +14,7 @@
 
 #define DEL 0177
 #define ESC 033
+#define CONT 024
 
 // This lives in isr.s
 extern void isrinit();
@@ -26,6 +27,9 @@ volatile unsigned int outptr = 0;
 unsigned char inbuf[BUFSIZE];
 volatile unsigned int inend = 0;
 volatile unsigned int inptr = 0;
+
+#define MAX_ALLOWANCE 32
+volatile int send_allowance = MAX_ALLOWANCE;
 
 #define kb_enable() \
     *((volatile unsigned int *)KBS) |= KB_ENABLE;
@@ -102,12 +106,12 @@ unsigned char tty_getch()
 
 void tty_flush()
 {
-  if (outptr != outend) {
-    tt_enable();
-    while (outptr != outend) {
-        asm("wait");
+    if (outptr != outend) {
+        tt_enable();
+        while (outptr != outend) {
+            asm("wait");
+        }
     }
-  }
 }
 
 // Keyboard interrupt handler, called from isr.s
@@ -129,6 +133,10 @@ void kb_handler()
         outbuf[outend++ % BUFSIZE] = '\r';
         outbuf[outend++ % BUFSIZE] = '\n';
         inbuf[inend++] = c;
+    } else if (c == CONT) {
+        send_allowance = MAX_ALLOWANCE;
+        tty_flush();
+        return;
     } else {
         outbuf[outend++ % BUFSIZE] = c;
         inbuf[inend++] = c;
@@ -141,10 +149,11 @@ void tt_handler()
 {
     volatile unsigned char *xbuf = (unsigned char *)TTD;
 
-    if (outptr == outend) {
+    if (outptr == outend || send_allowance <= 0) {
         tt_disable();
     } else {
         *xbuf = outbuf[outptr++ % BUFSIZE];
+        send_allowance--;
     }
 }
 
