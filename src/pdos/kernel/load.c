@@ -1,4 +1,5 @@
 #include "load.h"
+#include "stdlib.h"
 #include "stdio.h"
 #include "vm.h"
 #include "io.h"

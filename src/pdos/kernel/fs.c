@@ -597,3 +597,11 @@ void _fs_mkdev() {
     _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
     fs_mkdir("/bin");
 }
+
+int fs_stat(int inode, stat_t * stat) {
+    stat->inode = inode;
+    stat->filesize = fs_filesize(inode);
+    stat->refcount = inode_table[inode].refcount;
+    stat->flags = inode_table[inode].flags;
+    return 0;
+}

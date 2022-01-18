@@ -107,6 +107,7 @@ unsigned char tty_getch()
 void tty_flush()
 {
     if (outptr != outend) {
+        tt_disable();
         tt_enable();
         while (outptr != outend) {
             asm("wait");

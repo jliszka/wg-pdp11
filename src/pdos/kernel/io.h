@@ -1,13 +1,14 @@
 #ifndef IO_H
 #define IO_H
 
+#include "fs_defs.h"
+
 typedef struct {
     int (*fseek)(int, unsigned int);
     int (*fread)(int, unsigned char *, unsigned int);
     int (*fwrite)(int, unsigned char *, unsigned int);
     int (*fflush)(int);
 } vfile_t;
-
 
 typedef struct {
     int inode;
@@ -26,5 +27,6 @@ int io_fseek(int fd, unsigned int pos);
 int io_fread(int fd, unsigned char * buf, unsigned int len);
 int io_fwrite(int fd, unsigned char * buf, unsigned int len);
 int io_fflush(int fd);
+int io_fstat(int fd, stat_t * stat);
 
 #endif

@@ -83,4 +83,11 @@ typedef struct {
   char * filename;
 } path_info_t;
 
+typedef struct {
+    unsigned int inode;
+    unsigned int filesize;
+    unsigned char refcount;
+    unsigned char flags;
+} stat_t;
+
 #endif

@@ -41,21 +41,21 @@ buf:
 .=.+bufsize
 
 ttable:
-	.word trap.exit		# 0
-	.word trap.halt		# 1
-	.word trap.fork 	# 2
-	.word trap.exec 	# 3
-	.word trap.fopen	# 4
-	.word trap.fclose	# 5
-	.word trap.fseek	# 6
-	.word trap.fread        # 7
-	.word trap.fwrite       # 8
-	.word trap.fflush       # 9
-	.word trap.link 	# 10
-	.word trap.unlink	# 11
-	.word trap.mkdir        # 12
-	.word trap.rmdir	# 13
-
+	.word trap.exit	    # 0
+	.word trap.halt	    # 1
+	.word trap.fork     # 2
+	.word trap.exec     # 3
+	.word trap.fopen    # 4
+	.word trap.fclose   # 5
+	.word trap.fseek    # 6
+	.word trap.fread    # 7
+	.word trap.fwrite   # 8
+	.word trap.fflush   # 9
+	.word trap.link     # 10
+	.word trap.unlink   # 11
+	.word trap.mkdir    # 12
+	.word trap.rmdir    # 13
+    .word trap.fstat     # 14
 
 # "Reverse" trap to jump to user mode program. Args:
 #   - user mode stack pointer
@@ -374,3 +374,29 @@ trap.rmdir:
 
 	jmp ret
 
+
+# r5 points to user-space stack:
+#     - dest struct pointer
+#     - fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.fstat:
+    push r5
+    push $buf           # destination buffer
+    mfpi 4(r5)          # file descriptor
+    jsr pc, _io_fstat   # return value (r0): how many bytes read
+    add $4, sp
+    pop r5
+
+    mfpi 6(r5)          # destination buffer => r1
+    pop r1
+
+    mov $buf, r2        # source buffer => r2
+
+    mov $3, r3          # size of stat_t struct = 3 words
+$1:
+    push (r2)+          # copy 1 word at a time
+    mtpi (r1)+
+    sob r3, $1
+
+    jmp ret

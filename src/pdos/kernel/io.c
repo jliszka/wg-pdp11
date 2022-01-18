@@ -262,3 +262,11 @@ int io_tty_flush(int fd) {
     tty_flush();
     return 0;
 }
+
+int io_fstat(int fd, stat_t * stat) {
+    fd_t * fdt = proc_fd(fd);
+    if (fdt == 0) {
+        return -1;
+    }
+    return fs_stat(fdt->inode, stat);
+};
