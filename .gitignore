@@ -7,4 +7,5 @@ deps/
 *.o
 *.aout
 *.dasm
+*.a
 *~

@@ -1,6 +1,6 @@
-#include "stdlib.h"
-#include "sys.h"
-#include "fs.h"
+#include <stdlib.h>
+#include <sys.h>
+#include <fs.h>
 
 int main(int argc, char ** argv) {
     char * dirname = ".";

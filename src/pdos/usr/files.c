@@ -1,5 +1,5 @@
-#include "stdlib.h"
-#include "sys.h"
+#include <stdlib.h>
+#include <sys.h>
 
 int main(int argc, char ** argv) {
   char * filename = "/file.txt";

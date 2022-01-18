@@ -6,7 +6,7 @@ AR=pdp11-aout-ar
 # -nostdlib not to try linking with any system libraries.
 # -N put the data section immediately after the code section and not on its own page.
 # -fno-inline suppresses inlining functions to make it easier to read assembly.
-GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os -Ilib -Llib
+GCCOPTS=-nostdlib -fno-builtin -N -fno-inline -Os
 OBJDUMP=pdp11-aout-objdump
 AOUT2LDA=aout2lda.py
 
@@ -23,27 +23,21 @@ AOUT2LDA=aout2lda.py
 %.o: %.c
 	$(GCC) $(GCCOPTS) -c $<
 
-.PHONY: lib
-lib:
-	make -C lib
+%.o: %.s
+	$(GCC) $(GCCOPTS) -c $<
 
-# Compile and link a c file into a.out format
-%.aout: %.o
-	$(GCC) $(GCCOPTS) -Ttext 0x2000 -e _start -g -o $@ crt0.s $^ -lc
-
-# Convert from a.out format into the tape loader format
-%.bin: %.aout
-	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x2000
+libc.a: stdio.o fs.o sys.o itoa.o strlen.o strncmp.o strncpy.o
+	$(AR) rcs $@ $^
 
 %.dasm: %.aout
 	$(OBJDUMP) -d $< > $@
 
 ##########################################################
 
-all: lib hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin
+all: libc.a
 
 install:
-	cp *.bin /opt/pidp11/systems/pdos/
+	cp *.a ../
 
 clean:
-	rm -f *.o *.obj *.bin *.lst *.aout *.a && make -C lib clean
+	rm -f *.o *.obj *.bin *.lst *.aout *.a
