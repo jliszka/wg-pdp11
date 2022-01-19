@@ -195,6 +195,16 @@ trap.fseek:
 trap.fread:
     push r5
     mfpi 8(r5)          # number of bytes to read
+    pop r0
+    tst r0              # nothing to read? return
+    beq ret
+
+    cmp r0, $bufsize    # don't copy over more than the size of the buffer
+    ble 5$
+    mov $bufsize, r0
+
+5$:
+    push r0             # number of bytes to read
     push $buf           # destination buffer
     mfpi 4(r5)          # file descriptor
     jsr pc, _io_fread   # return value (r0): how many bytes read

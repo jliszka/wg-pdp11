@@ -18,10 +18,16 @@ int io_tty_flush(int fd);
 
 int io_ptr_read(int fd, unsigned char * buf, unsigned int len);
 
+int io_hd_seek(int fd, unsigned int pos);
+int io_hd_read(int fd, unsigned char * buf, unsigned int len);
+int io_hd_write(int fd, unsigned char * buf, unsigned int len);
+int io_hd_flush(int fd);
+
 static vfile_t vfile = { &io_file_seek, &io_file_read, &io_file_write, &io_file_flush };
 static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
     { 0, &io_tty_read, &io_tty_write, &io_tty_flush },
-    { 0, &io_ptr_read, 0, 0 }
+    { 0, &io_ptr_read, 0, 0 },
+    { &io_file_seek, &io_hd_read, &io_hd_write, &io_hd_flush }
 };
 
 int io_reset() {
@@ -69,13 +75,21 @@ int io_fopen(char * path, char mode) {
     fdt->mode = mode;
 
     int device_type;
-    if (fs_is_device(fdt->inode, &device_type)) {
+    switch (fs_is_device(fdt->inode, &device_type)) {
+    case INODE_FLAG_CHAR_DEVICE:
         fdt->vfile = &vfile_devs[device_type];
         fdt->buffer = 0;
-    } else {
+        break;
+    case INODE_FLAG_BLOCK_DEVICE:
+        fdt->vfile = &vfile_devs[device_type];
+        fdt->buffer = kmalloc();
+        bzero(fdt->buffer, BYTES_PER_SECTOR);
+        break;
+    default:
         fdt->vfile = &vfile;
         fdt->buffer = kmalloc();
         bzero(fdt->buffer, BYTES_PER_SECTOR);
+        break;
     }
 
     return fd;
@@ -172,6 +186,39 @@ int io_file_read(int fd, unsigned char * buf, unsigned int len) {
     return len;
 }
 
+int io_hd_read(int fd, unsigned char * buf, unsigned int len) {
+    fd_t * fdt = proc_fd(fd);
+
+    if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
+        // Load a new block if needed
+        fdt->cur_block = fs_block_from_pos(fdt->pos);
+        // Block maps directly to a sector
+        _fs_read_sector(fdt->cur_block, fdt->buffer);
+    }
+
+    // Read up to the end of the current block or the filesize
+    int filesize = fs_filesize(fdt->inode);
+    if (fdt->pos + len > filesize) {
+        len = filesize - fdt->pos;
+    }
+    if (len <= 0) {
+        // EOF
+        return 0;
+    }
+    int offset = fs_offset_from_pos(fdt->pos);
+    int end = offset + len;
+    if (end > BYTES_PER_SECTOR) {
+        len = BYTES_PER_SECTOR - offset;
+    }
+
+    // Advance the current position
+    fdt->pos += len;
+
+    bcopy(buf, fdt->buffer + offset, len);
+
+    return len;
+}
+
 int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
     return tty_read(len, buf);
 }
@@ -224,6 +271,37 @@ int io_file_write(int fd, unsigned char * buf, unsigned int len) {
     return len;
 }
 
+int io_hd_write(int fd, unsigned char * buf, unsigned int len) {
+    fd_t * fdt = proc_fd(fd);
+
+    if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
+        // Flush the old block if valid
+        if (fdt->cur_block >= 0) {
+            _fs_write_sector(fdt->cur_block, fdt->buffer);
+        }
+        // Load a new block if needed
+        fdt->cur_block = fs_block_from_pos(fdt->pos);
+        // Block maps directly to sector
+        _fs_read_sector(fdt->cur_block, fdt->buffer);
+    }
+
+    // Read up to the end of the current block
+    int offset = fs_offset_from_pos(fdt->pos);
+    int end = offset + len;
+    if (end > BYTES_PER_SECTOR) {
+        len = BYTES_PER_SECTOR - offset;
+    }
+
+    // Advance the current position
+    fdt->pos += len;
+    if (fdt->pos > fdt->max_pos) {
+      fdt->max_pos = fdt-> pos;
+    }
+    bcopy(fdt->buffer + offset, buf, len);
+
+    return len;
+}
+
 int io_tty_write(int fd, unsigned char * buf, unsigned int len) {
     return tty_write(len, buf);
 }
@@ -255,6 +333,18 @@ int io_file_flush(int fd) {
         }
     }
     
+    return 0;
+}
+
+int io_hd_flush(int fd) {
+    fd_t * fdt = proc_fd(fd);
+
+    // Flush the current block if valid
+    if (fdt->cur_block >= 0) {
+        // Flush the whole block (sector)
+        _fs_write_sector(fdt->cur_block, fdt->buffer);
+    }
+
     return 0;
 }
 

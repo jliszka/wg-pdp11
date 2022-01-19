@@ -40,7 +40,7 @@ lib:
 
 ##########################################################
 
-all: lib hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin
+all: lib hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin
 
 install:
 	cp *.bin /opt/pidp11/systems/pdos/

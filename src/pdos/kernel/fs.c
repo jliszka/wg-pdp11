@@ -83,11 +83,12 @@ int fs_mkfs() {
 int fs_is_dir(int inode) {
 	if (inode_table[inode].refcount == 0) {
 		return 0;
-	}		
-	if ((inode_table[inode].flags & INODE_FLAG_DIRECTORY) == 0) {
-		return 0;
 	}
-	return 1;
+    // TODO: do other flags apply for directories?
+	if (inode_table[inode].flags == INODE_FLAG_DIRECTORY) {
+		return 1;
+	}
+	return 0;
 }
 
 int fs_is_device(int inode, int * dev) {
@@ -95,18 +96,29 @@ int fs_is_device(int inode, int * dev) {
         return 0;
     }
     int flags = inode_table[inode].flags;
-    if (flags & INODE_FLAG_DEVICE) {
-        *dev = flags & ~INODE_FLAG_DEVICE;
-        return 1;
+    if (flags & INODE_FLAG_CHAR_DEVICE) {
+        *dev = flags & ~INODE_FLAG_CHAR_DEVICE;
+        return INODE_FLAG_CHAR_DEVICE;
+    }
+    if (flags & INODE_FLAG_BLOCK_DEVICE) {
+        *dev = flags & ~INODE_FLAG_BLOCK_DEVICE;
+        return INODE_FLAG_BLOCK_DEVICE;
     }
     return 0;
 }
 
 int fs_filesize(int inode) {
-	if (inode_table[inode].refcount == 0) {
-		return ERR_FILE_NOT_FOUND;
-	}
-	return inode_table[inode].filesize;
+    if (inode_table[inode].refcount == 0) {
+	    return ERR_FILE_NOT_FOUND;
+    }
+    int device_type;
+    if (fs_is_device(inode, &device_type) == INODE_FLAG_BLOCK_DEVICE) {
+        if (device_type == VFILE_DEV_HD) {
+            // Max signed int. Can only write directly to the first 64 sectors of the disk.
+            return 32767;
+        }
+    }
+    return inode_table[inode].filesize;
 }
 
 int _fs_allocate_sector() {
@@ -592,8 +604,9 @@ int fs_rmdir(char * target) {
 void _fs_mkdev() {
     int dev_inode = fs_mkdir("/dev");
     dirent_t * dev_dir = _fs_load_dir(dev_inode);
-    _fs_mk(dev_inode, dev_dir, "tty", INODE_FLAG_DEVICE | VFILE_DEV_TTY);
-    _fs_mk(dev_inode, dev_dir, "ptr", INODE_FLAG_DEVICE | VFILE_DEV_PTR);
+    _fs_mk(dev_inode, dev_dir, "tty", INODE_FLAG_CHAR_DEVICE | VFILE_DEV_TTY);
+    _fs_mk(dev_inode, dev_dir, "ptr", INODE_FLAG_CHAR_DEVICE | VFILE_DEV_PTR);
+    _fs_mk(dev_inode, dev_dir, "hd", INODE_FLAG_BLOCK_DEVICE | VFILE_DEV_HD);
     _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
     fs_mkdir("/bin");
 }
