@@ -18,5 +18,6 @@ int unlink(char * target);
 int mkdir(char * dirname);
 int rmdir(char * dirname);
 int fstat(int fd, stat_t * stat);
+int mkfs();
 
 #endif

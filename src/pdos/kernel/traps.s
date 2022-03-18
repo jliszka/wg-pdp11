@@ -408,3 +408,9 @@ $1:
     sob r3, $1
 
     jmp ret
+
+
+# No arguments
+trap.mkfs:
+    jsr pc, _fs_mkfs
+    jmp ret
