@@ -2,9 +2,6 @@
 
 .include "macros.s"
 
-.globl _tty_read
-.globl _tty_write
-.globl _tty_flush
 .globl _userexec
 
 .text
@@ -19,21 +16,21 @@
 # r5 -> old r5
 .globl ktrap
 ktrap:
-	mov (sp), r0		# return address for the trap call (in user address space)
-	sub $2, r0			# subtract 2 to get the address of the trap instruction
-	mfpi (r0)			# read the trap instruction (from previous instruction space = user)
-	pop r0
-	bic $0177400, r0	# get the low byte of the instruction to determine the trap number
-	asl r0				# multiply by 2...
+    mov (sp), r0        # return address for the trap call (in user address space)
+    sub $2, r0          # subtract 2 to get the address of the trap instruction
+    mfpi (r0)           # read the trap instruction (from previous instruction space = user)
+    pop r0
+    bic $0177400, r0    # get the low byte of the instruction to determine the trap number
+    asl r0              # multiply by 2...
 
     push r2
     push r3
-	jmp @ttable(r0)		# and address into the jump table
+    jmp @ttable(r0)     # and address into the jump table
 
 ret:
     pop r3
     pop r2
-	rti
+    rti
 
 .even
 bufsize = 64
@@ -41,21 +38,22 @@ buf:
 .=.+bufsize
 
 ttable:
-	.word trap.exit	    # 0
-	.word trap.halt	    # 1
-	.word trap.fork     # 2
-	.word trap.exec     # 3
-	.word trap.fopen    # 4
-	.word trap.fclose   # 5
-	.word trap.fseek    # 6
-	.word trap.fread    # 7
-	.word trap.fwrite   # 8
-	.word trap.fflush   # 9
-	.word trap.link     # 10
-	.word trap.unlink   # 11
-	.word trap.mkdir    # 12
-	.word trap.rmdir    # 13
-    .word trap.fstat     # 14
+    .word trap.exit     # 0
+    .word trap.halt     # 1
+    .word trap.fork     # 2
+    .word trap.exec     # 3
+    .word trap.fopen    # 4
+    .word trap.fclose   # 5
+    .word trap.fseek    # 6
+    .word trap.fread    # 7
+    .word trap.fwrite   # 8
+    .word trap.fflush   # 9
+    .word trap.link     # 10
+    .word trap.unlink   # 11
+    .word trap.mkdir    # 12
+    .word trap.rmdir    # 13
+    .word trap.fstat    # 14
+    .word trap.mkfs     # 15
 
 # "Reverse" trap to jump to user mode program. Args:
 #   - user mode stack pointer
@@ -79,16 +77,16 @@ _userexec:
 trap.exit:
     mfpi 4(r5)
     pop r0
-	# current stack looks like:
+    # current stack looks like:
     #     - return address for call to userexec()
     #     - saved registers r1-r5
     #     - PSW for this trap
     #     - return address for this trap
     #     - r2
     # sp -> r3
-	# We want to ignore the first 4, restore the registers, and then return,
+    # We want to ignore the first 4, restore the registers, and then return,
     # effectively simulating the "return" from userexec()
-	add $8, sp
+    add $8, sp
 
     pop r5
     pop r4
@@ -100,12 +98,12 @@ trap.exit:
 # No arguments
 trap.halt:
     halt
-	jmp ret
+    jmp ret
 
 # No arguments
 trap.fork:
     mov $-1, r0
-	jmp ret
+    jmp ret
 
 # r5 points to user-space stack:
 #     - arguments (char **)
@@ -114,7 +112,7 @@ trap.fork:
 # r5 -> old r5
 trap.exec:
     mov $-1, r0
-	jmp ret
+    jmp ret
 
 # r5 points to user-space stack:
 #     - mode (char)
@@ -137,31 +135,31 @@ trap.fopen:
 
 # Read from user-space buffer (top of stack)
 readbuf:
-	mov 2(sp), r0       # buffer to copy into
-	mov 4(sp), r1	    # user-space pointer
+    mov 2(sp), r0       # buffer to copy into
+    mov 4(sp), r1       # user-space pointer
 
-	bit r1, $1          # check if the address is even
-	beq 1$
+    bit r1, $1          # check if the address is even
+    beq 1$
 
-	dec r1              # if odd, copy only the first byte
-	mfpi (r1)+
-	pop r2
-	br 2$
+    dec r1              # if odd, copy only the first byte
+    mfpi (r1)+
+    pop r2
+    br 2$
 
 1$:
-	mfpi (r1)+          # read a word from the previous address space
-	pop r2
-	movb r2, (r0)+      # copy the low byte to destination buffer
-	beq 3$              # if we copied a 0 byte, we're done
+    mfpi (r1)+          # read a word from the previous address space
+    pop r2
+    movb r2, (r0)+      # copy the low byte to destination buffer
+    beq 3$              # if we copied a 0 byte, we're done
 2$:
-	ash $-8, r2
-	movb r2, (r0)+      # copy the high byte to destination buffer
-	beq 3$              # if we copied a 0 byte, we're done
+    ash $-8, r2
+    movb r2, (r0)+      # copy the high byte to destination buffer
+    beq 3$              # if we copied a 0 byte, we're done
 
-	br 1$               # go around again!
+    br 1$               # go around again!
 
 3$:
-	rts pc
+    rts pc
 
 
 # r5 points to user-space stack:
@@ -316,24 +314,24 @@ trap.fflush:
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.link:
-	mfpi 4(r5)          # source path
-	push $buf
-	jsr pc, readbuf
-	add $4, sp
+    mfpi 4(r5)          # source path
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
 
-	push r0	            # r0 is the beginning of the target path string
+    push r0             # r0 is the beginning of the target path string
 
-	mfpi 6(r5)          # target path
-	push r0
-	jsr pc, readbuf
-	add $4, sp
+    mfpi 6(r5)          # target path
+    push r0
+    jsr pc, readbuf
+    add $4, sp
 
-	# target path is already on the stack
-	push $buf          # source path
-	jsr pc, _fs_link
-	add $4, sp
+    # target path is already on the stack
+    push $buf          # source path
+    jsr pc, _fs_link
+    add $4, sp
 
-	jmp ret
+    jmp ret
 
 
 # r5 points to user-space stack:
@@ -341,48 +339,48 @@ trap.link:
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.unlink:
-	mfpi 4(r5)          # target dir name
-	push $buf
-	jsr pc, readbuf
-	add $4, sp
+    mfpi 4(r5)          # target dir name
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
 
-	push $buf
-	jsr pc, _fs_unlink
-	add $2, sp
+    push $buf
+    jsr pc, _fs_unlink
+    add $2, sp
 
-	jmp ret
+    jmp ret
 
 # r5 points to user-space stack:
 #     - target dir name (user-space pointer)
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.mkdir:
-	mfpi 4(r5)          # target dir name
-	push $buf
-	jsr pc, readbuf
-	add $4, sp
+    mfpi 4(r5)          # target dir name
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
 
-	push $buf
-	jsr pc, _fs_mkdir
-	add $2, sp
+    push $buf
+    jsr pc, _fs_mkdir
+    add $2, sp
 
-	jmp ret
+    jmp ret
 
 # r5 points to user-space stack:
 #     - target dir name (user-space pointer)
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.rmdir:
-	mfpi 4(r5)          # target dir name
-	push $buf
-	jsr pc, readbuf
-	add $4, sp
+    mfpi 4(r5)          # target dir name
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
 
-	push $buf
-	jsr pc, _fs_rmdir
-	add $2, sp
+    push $buf
+    jsr pc, _fs_rmdir
+    add $2, sp
 
-	jmp ret
+    jmp ret
 
 
 # r5 points to user-space stack:
