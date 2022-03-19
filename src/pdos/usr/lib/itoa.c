@@ -38,19 +38,26 @@ char * itoa(int radix, int n, char * dst) {
     return uitoa(radix, n, dst);
 }
 
-int atoi(char * str) {
+int atoi(char * str, int len) {
     int ret = 0;
     int sign = 1;
+    // Skip leading spaces
+    while (*str == ' ' && len > 0) {
+        str++;
+        len--;
+    }
     if (*str == '0') {
         return 0;
     }
     if (*str == '-') {
         sign = -1;
         str++;
+        len--;
     }
-    while ('0' <= *str && *str <= '9') {
+    while ('0' <= *str && *str <= '9' && len > 0) {
         ret *= 10;
         ret += *str++ - '0';
+        len--;
     }
     return ret * sign;
 }

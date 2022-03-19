@@ -3,7 +3,7 @@
 
 int main(int argc, char ** argv) {
     for (int i = 1; i < argc; i++) {
-        int fd = fopen(argv[1], 'r');
+        int fd = fopen(argv[i], 'r');
         if (fd < 0) {
             println("Failed to open source");
             return fd;

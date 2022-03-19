@@ -40,10 +40,15 @@ lib:
 
 ##########################################################
 
-all: lib hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin
+BINS=hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin ar.bin
+
+bin.a: $(BINS)
+	$(AR) rc $@ $^
+
+all: lib $(BINS) bin.a
 
 install:
-	cp *.bin /opt/pidp11/systems/pdos/
+	cp *.bin *.a /opt/pidp11/systems/pdos/
 
 clean:
 	rm -f *.o *.obj *.bin *.lst *.aout *.a && make -C lib clean
