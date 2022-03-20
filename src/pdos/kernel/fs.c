@@ -618,3 +618,12 @@ int fs_stat(int inode, stat_t * stat) {
     stat->flags = inode_table[inode].flags;
     return 0;
 }
+
+int fs_stat_path(char * path, stat_t * stat) {
+    path_info_t path_info;
+    int ret = fs_resolve_path(path, &path_info);
+    if (ret < 0) {
+      return ret;
+    }
+    return fs_stat(path_info.inode, stat);
+}

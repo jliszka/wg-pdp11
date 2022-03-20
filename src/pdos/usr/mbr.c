@@ -8,24 +8,17 @@ int main(int argc, char ** argv) {
     }
 
     // Identify kernel program inode
-    int fd = fopen(argv[2], 'r');
-    if (fd < 0) {
-        println("Could not read kernel");
-        return fd;
-    }
-
-    stat_t stat;
-    int ret = fstat(fd, &stat);
+    stat_t file_stat;
+    int ret = stat(argv[2], &file_stat);
     if (ret < 0) {
         println("Could not stat kernel");
         return ret;
     }
-    fclose(fd);
 
-    int kernel_inode = stat.inode;
+    int kernel_inode = file_stat.inode;
 
     // Read in the bootloader program (max 512 bytes)
-    fd = fopen(argv[1], 'r');
+    int fd = fopen(argv[1], 'r');
     if (fd < 0) {
         println("Could not open bootloader");
         return fd;

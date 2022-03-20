@@ -52,7 +52,7 @@ ttable:
     .word trap.unlink   # 11
     .word trap.mkdir    # 12
     .word trap.rmdir    # 13
-    .word trap.fstat    # 14
+    .word trap.stat    # 14
     .word trap.mkfs     # 15
 
 # "Reverse" trap to jump to user mode program. Args:
@@ -385,14 +385,20 @@ trap.rmdir:
 
 # r5 points to user-space stack:
 #     - dest struct pointer
-#     - fd
+#     - file path
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fstat:
+trap.stat:
     push r5
+
+    mfpi 4(r5)          # read file path from user space
+    push $buf+6
+    jsr pc, readbuf
+    add $4, sp
+
     push $buf           # destination buffer
-    mfpi 4(r5)          # file descriptor
-    jsr pc, _io_fstat   # return value (r0): how many bytes read
+    push $buf+6         # file path
+    jsr pc, _fs_stat_path
     add $4, sp
     pop r5
 
@@ -402,10 +408,10 @@ trap.fstat:
     mov $buf, r2        # source buffer => r2
 
     mov $3, r3          # size of stat_t struct = 3 words
-$1:
+1$:
     push (r2)+          # copy 1 word at a time
     mtpi (r1)+
-    sob r3, $1
+    sob r3, 1$
 
     jmp ret
 

@@ -38,5 +38,5 @@ syscall _link, 10
 syscall _unlink, 11
 syscall _mkdir, 12
 syscall _rmdir, 13
-syscall _fstat, 14
+syscall _stat, 14
 syscall _mkfs, 15
