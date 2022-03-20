@@ -26,7 +26,7 @@ AOUT2LDA=aout2lda.py
 %.o: %.s
 	$(GCC) $(GCCOPTS) -c $<
 
-libc.a: stdio.o fs.o sys.o itoa.o strlen.o strncmp.o strncpy.o
+libc.a: stdio.o fs.o sys.o itoa.o strlen.o strncmp.o strncpy.o getopt.o
 	$(AR) rcs $@ $^
 
 %.dasm: %.aout

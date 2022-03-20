@@ -14,9 +14,45 @@ typedef struct {
 static char * MAGIC = "!<arch>\n";
 
 int main(int argc, char ** argv) {
+
+    int do_halt = 0;
+    char * target = 0;
+
+    char opt;
+    char *optarg;
+    while ((opt = getopt(&argc, &argv, "hd:", &optarg)) != -1) {
+        switch (opt) {
+            case 'h':
+                do_halt = 1;
+                break;
+            case 'd':
+                target = optarg;
+                break;
+        }
+    }
+
+    if (target != 0) {
+        int tgt = fopen(target, 'r');
+        if (tgt >= 0) {
+            println("Target is not a directory");
+            return -1;
+        }
+        tgt = fopen(target, 'd');
+        if (tgt < 0) {
+            mkdir(target);
+        } else {
+            fclose(tgt);
+        }
+    }
+
     if (argc != 2) {
         println("Not enough arguments");
         return -1;
+    }
+
+    if (do_halt) {
+        println("Attach archive...");
+        halt();
     }
 
     int fd = fopen(argv[1], 'r');
@@ -39,15 +75,24 @@ int main(int argc, char ** argv) {
         for (int i = 15; i >= 0 && header.filename[i] == ' '; i++) {
             header.filename[i] = 0;
         }
-        header.filename[15] = 0; // Ensure it ends with a \0
+
+        // Construct the path
+        char * end = buf;
+        if (target != 0) {
+            end = strncpy(buf, target, 48);
+            if (end[-1] != '/') {
+                *end++ = '/';
+            }
+        }
+        strncpy(end, header.filename, 16);
 
         print("Writing ");
-        println(header.filename);
+        println(buf);
 
-        int dst = fopen(header.filename, 'w');
+        int dst = fopen(buf, 'w');
         if (dst < 0) {
             print("Failed to open dst: ");
-            println(header.filename);
+            println(buf);
             return -1;
         }
 

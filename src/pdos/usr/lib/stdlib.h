@@ -15,5 +15,6 @@ char * itoa(int radix, int n, char * dst);
 int atoi(char * str, int n);
 int strncmp(char * a, char * b, int n);
 char * strncpy(char * dst, char * src, int n);
+char getopt(int * argc, char *** argv, char * optstring, char ** optarg);
 
 #endif
