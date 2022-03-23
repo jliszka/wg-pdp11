@@ -63,7 +63,7 @@ int main(int argc, char ** argv) {
 
     unsigned char buf[64];
     int pos = fread(fd, buf, 8);
-    if (!strncmp(buf, MAGIC, 8)) {
+    if (strncmp(buf, MAGIC, 8) != 0) {
         println("This is not an archive");
         return -1;
     }
@@ -72,7 +72,7 @@ int main(int argc, char ** argv) {
     while (fread(fd, (unsigned char *)&header, sizeof(archive_header_t)) > 0) {
 
         // Replace trailing spaces in the file name with \0
-        for (int i = 15; i >= 0 && header.filename[i] == ' '; i++) {
+        for (int i = 15; i >= 0 && header.filename[i] == ' '; i--) {
             header.filename[i] = 0;
         }
 
@@ -99,7 +99,11 @@ int main(int argc, char ** argv) {
         int size = atoi(header.filesize, 10);
         int read = 0;
         while (read < size) {
-            int len = fread(fd, buf, sizeof(buf));
+            int len = size - read;
+            if (len > sizeof(buf)) {
+                len = sizeof(buf);
+            }
+            len = fread(fd, buf, len);
             if (len <= 0) {
                 print("Failed reading from dst: ");
                 println(header.filename);

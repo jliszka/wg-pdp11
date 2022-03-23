@@ -2,14 +2,16 @@
 
 int strncmp(char * a, char * b, int n)
 {
-    // Compare the first n characters and the \0
-    while (*a && *b && n--)
+    // Compare up to the first n characters
+    for (int i = 0; i < n; i++)
     {
-        char diff = *b++ - *a++;
-        if (diff != 0)
-        {
+        char diff = b[i] - a[i];
+        if (diff != 0) {
             return diff;
         }
+        if (a[i] == 0) {
+            break;
+        }
     }
-    return *b - *a;
+    return 0;
 }
