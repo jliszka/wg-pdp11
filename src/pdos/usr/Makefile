@@ -28,8 +28,8 @@ lib:
 	make -C lib
 
 # Compile and link a c file into a.out format
-%.aout: %.o
-	$(GCC) $(GCCOPTS) -Ttext 0x2000 -e _start -g -o $@ crt0.s $^ -lc
+%.aout: %.o lib
+	$(GCC) $(GCCOPTS) -Ttext 0x2000 -e _start -g -o $@ crt0.s $< -lc
 
 # Convert from a.out format into the tape loader format
 %.bin: %.aout
@@ -43,9 +43,9 @@ lib:
 BINS=hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin ar.bin
 
 bin.a: $(BINS)
-	$(AR) rc $@ $^
+	mkdir -p bin && tar cf - --xform 's/.bin$$//' $^ | tar xf - -C bin && $(AR) rc $@ bin/* && rm -rf bin
 
-all: lib $(BINS) bin.a
+all: $(BINS) bin.a
 
 install:
 	cp *.bin *.a /opt/pidp11/systems/pdos/
