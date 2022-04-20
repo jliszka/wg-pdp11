@@ -135,7 +135,7 @@ int io_file_seek(int fd, unsigned int pos) {
     }
     fdt->pos = pos;
     if (fdt->pos > fdt->max_pos) {
-      fdt->max_pos = fdt-> pos;
+      fdt->max_pos = fdt->pos;
     }
     return 0;
 }

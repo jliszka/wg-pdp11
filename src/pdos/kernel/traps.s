@@ -52,7 +52,7 @@ ttable:
     .word trap.unlink   # 11
     .word trap.mkdir    # 12
     .word trap.rmdir    # 13
-    .word trap.stat    # 14
+    .word trap.stat     # 14
     .word trap.mkfs     # 15
 
 # "Reverse" trap to jump to user mode program. Args:
@@ -195,7 +195,7 @@ trap.fread:
     mfpi 8(r5)          # number of bytes to read
     pop r0
     tst r0              # nothing to read? return
-    beq ret
+    beq 6$
 
     cmp r0, $bufsize    # don't copy over more than the size of the buffer
     ble 5$
@@ -243,6 +243,7 @@ trap.fread:
 
 4$:
     pop r0              # number of bytes read
+6$:
     jmp ret
 
 # r5 points to user-space stack:
@@ -258,7 +259,7 @@ trap.fwrite:
     pop r1
 
     tst r0              # nothing to write? return
-    beq ret
+    beq 5$
 
     cmp r0, $bufsize    # don't copy over more than the size of the buffer
     ble 4$
@@ -294,7 +295,7 @@ trap.fwrite:
     mfpi 4(r5)          # file descriptor
     jsr pc, _io_fwrite
     add $6, sp
-
+5$:
     jmp ret
 
 # r5 points to user-space stack:

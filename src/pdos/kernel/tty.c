@@ -72,7 +72,11 @@ int tty_write(int nbytes, char *str)
     int len = nbytes;
     while (nbytes-- > 0)
     {
-        outbuf[outend++ % BUFSIZE] = *str++;
+        outbuf[outend++ % BUFSIZE] = *str;
+        if (*str == '\n') {
+            tty_flush();
+        }
+        str++;
     }
     return len;
 }

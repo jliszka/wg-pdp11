@@ -36,7 +36,9 @@ int fs_init() {
 
 int fs_mount() {
     _fs_read_sector(INODE_TABLE, (unsigned char *)inode_table);
-    _fs_read_sector(inode_table[ROOT_DIR_INODE].sector, (unsigned char *)root_dir);
+    _fs_read_sector(
+                    inode_table[ROOT_DIR_INODE].sector,
+                    (unsigned char *)root_dir);
     return ROOT_DIR_INODE;
 }
 
@@ -114,7 +116,8 @@ int fs_filesize(int inode) {
     int device_type;
     if (fs_is_device(inode, &device_type) == INODE_FLAG_BLOCK_DEVICE) {
         if (device_type == VFILE_DEV_HD) {
-            // Max signed int. Can only write directly to the first 64 sectors of the disk.
+            // Max signed int. Can only write directly to the
+            // first 64 sectors of the disk.
             return 32767;
         }
     }
@@ -153,10 +156,17 @@ dirent_t * _fs_load_dir(int dir_inode) {
     }
 }
 
-int _fs_find_inode(int parent_dir_inode, dirent_t * parent_dir, char * filename, int * index) {
+int _fs_find_inode(
+    int parent_dir_inode,
+    dirent_t * parent_dir,
+    char * filename, int * index
+) {
     int dirent_count = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
     for (int i = 0; i < dirent_count; i++) {
-        if (strncmp(parent_dir[i].filename, filename, sizeof(parent_dir[i].filename)) == 0) {
+        if (strncmp(
+                    parent_dir[i].filename,
+                    filename,
+                    sizeof(parent_dir[i].filename)) == 0) {
             *index = i;
             return parent_dir[i].inode;
         }
@@ -213,7 +223,13 @@ char * fs_build_path(int dir_inode, char * buf, int len) {
     return strncpy(tail, dir->filename, len-parent_len);
 }
 
-int _fs_add_dirent(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigned char flags, int inode) {
+int _fs_add_dirent(
+    int parent_dir_inode,
+    dirent_t * parent_dir,
+    char * filename,
+    unsigned char flags,
+    int inode
+) {
     // Find an empty slot in the parent directory table
     int next_dirent_idx = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
 

@@ -132,8 +132,11 @@ int proc_dup(int pid) {
 }
 
 void proc_free(int pid) {
-    vm_free_page(ptable[pid].code_page);
-    vm_free_page(ptable[pid].stack_page);
+    pcb_t * pt = &ptable[pid];
+    vm_free_page(pt->code_page);
+    vm_free_page(pt->stack_page);
+    pt->code_page = 0;
+    pt->stack_page = 0;
     vm_user_unmap();
 }
 
