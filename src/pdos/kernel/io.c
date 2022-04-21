@@ -157,13 +157,7 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
 int io_file_read(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
 
-    if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
-        // Load a new block if needed
-        fdt->cur_block = fs_block_from_pos(fdt->pos);
-        fs_read_block(fdt->inode, fdt->cur_block, fdt->buffer);
-    }
-
-    // Read up to the end of the current block or the filesize
+    // Read only up to the end of the file
     int filesize = fs_filesize(fdt->inode);
     if (fdt->pos + len > filesize) {
         len = filesize - fdt->pos;
@@ -172,16 +166,30 @@ int io_file_read(int fd, unsigned char * buf, unsigned int len) {
         // EOF
         return 0;
     }
-    int offset = fs_offset_from_pos(fdt->pos);
-    int end = offset + len;
-    if (end > BYTES_PER_SECTOR) {
-        len = BYTES_PER_SECTOR - offset;
-    }
 
-    // Advance the current position
-    fdt->pos += len;
+    int remaining = len;
+    do {
+        int block_offset = fs_offset_from_pos(fdt->pos);
 
-    bcopy(buf, fdt->buffer + offset, len);
+        if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
+            // Load a new block if needed
+            fdt->cur_block = fs_block_from_pos(fdt->pos);
+            fs_read_block(fdt->inode, fdt->cur_block, fdt->buffer);
+        }
+
+        int in_sector_bytes = remaining;
+        if (block_offset + in_sector_bytes > BYTES_PER_SECTOR) {
+            in_sector_bytes = BYTES_PER_SECTOR - block_offset;
+        }
+
+        bcopy(buf, fdt->buffer + block_offset, in_sector_bytes);
+
+        // Advance the current position
+        fdt->pos += in_sector_bytes;
+        remaining -= in_sector_bytes;
+        buf += in_sector_bytes;
+
+    } while (remaining > 0);
 
     return len;
 }

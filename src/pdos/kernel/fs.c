@@ -454,17 +454,29 @@ int fs_read(int inode, unsigned char * buf, int len, int offset) {
         // Indirect case
         inode_indirect_t indirect[IINODES_PER_SECTOR];
         _fs_read_sector(inode_table[inode].sector, (unsigned char *)indirect);
-        int src_block = fs_block_from_pos(offset);
-        offset = fs_offset_from_pos(offset);
-        // Read up to the end of the sector. Caller might need to try again.
-        bytes_to_read = bytes_to_read < BYTES_PER_SECTOR - offset ? bytes_to_read : BYTES_PER_SECTOR - offset;
-        if (indirect[src_block].sector == 0) {
-            // Zero sector means this is a hole in the file, so return 0s.
-            bzero(buf, bytes_to_read);
-        } else {
-            _fs_read_sector(indirect[src_block].sector, temp);
-            bcopy(buf, temp + offset, bytes_to_read);
-        }
+
+        int remaining = bytes_to_read;
+        do {
+            int src_block = fs_block_from_pos(offset);
+            int block_offset = fs_offset_from_pos(offset);
+
+            // Read up to the end of the sector.
+            int in_sector_bytes = remaining;
+            if (block_offset + in_sector_bytes > BYTES_PER_SECTOR) {
+                in_sector_bytes = BYTES_PER_SECTOR - block_offset;
+            }
+            if (indirect[src_block].sector == 0) {
+                // Zero sector means this is a hole in the file, so return 0s.
+                bzero(buf, in_sector_bytes);
+            } else {
+                _fs_read_sector(indirect[src_block].sector, temp);
+                bcopy(buf, temp + block_offset, in_sector_bytes);
+            }
+
+            buf += in_sector_bytes;
+            offset += in_sector_bytes;
+            remaining -= in_sector_bytes;
+        } while (remaining > 0);
     } else {
         // Direct case
         _fs_read_sector(inode_table[inode].sector, temp);
