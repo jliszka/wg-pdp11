@@ -8,8 +8,8 @@ typedef struct line_t {
 } line_t;
 
 char * filename;
-line_t * buf_head;
-line_t * buf_tail;
+line_t * buf_head = 0;
+line_t * buf_tail = 0;
 int line_count;
 
 int cmd_read(char * file);
@@ -20,9 +20,15 @@ int cmd_delete(int start, int end);
 int cmd_insert(int line);
 int cmd_change(int start, int end);
 int cmd_move(int start, int end, int dst);
+int cmd_transfer(int start, int end, int dst);
 
 char * _parse_address(char * cmd, int * start, int * end);
 int _do_command(int nparts, char ** parts);
+int _input_lines(line_t ** head, line_t ** tail);
+int _cut_lines(int start, int end, line_t ** head, line_t ** tail);
+void _insert_lines(line_t * head, line_t * tail, int dst);
+void _free_lines(line_t * head);
+int _seek(int line, line_t ** p, line_t ** pprev);
 
 int main(int argc, char ** argv) {
     if (argc == 2) {
@@ -104,11 +110,16 @@ int _do_command(int nparts, char ** parts) {
             return -1;
         }
         return cmd_move(start, end, atoi(parts[1], 10));
+    case 't':
+        if (nparts < 2) {
+            return -1;
+        }
+        return cmd_transfer(start, end, atoi(parts[1], 10));
     }
     return -1;
 }
 
-int _read_lines(line_t ** head, line_t ** tail) {
+int _input_lines(line_t ** head, line_t ** tail) {
     char buf[256];
     int len = input(256, buf);
     int new_lines = 0;
@@ -120,8 +131,7 @@ int _read_lines(line_t ** head, line_t ** tail) {
         new_line->next = 0;
         bcopy(new_line->line, buf, len);
         if (*head == 0) *head = new_line;
-        if (*tail == 0) *tail = new_line;
-        else (*tail)->next = new_line;
+        if (*tail != 0) (*tail)->next = new_line;
         *tail = new_line;
         new_lines++;
         len = input(256, buf);
@@ -139,23 +149,87 @@ int _seek(int line, line_t ** p, line_t ** pprev) {
     return count;
 }
 
+void _free_lines(line_t * head) {
+    while (head != 0) {
+        line_t * p = head;
+        head = head->next;
+        free(p->line);
+        free(p);
+    }
+}
+
 int _cut_lines(int start, int end, line_t ** head, line_t ** tail) {
-    line_t * p = buf_head;
-    line_t * q;
-    _seek(start, &p, &q);
-    if (p == 0) {
+    line_t * a = buf_head;
+    line_t * aprev;
+    _seek(start, &a, &aprev);
+    if (a == 0) {
         *head = 0;
         *tail = 0;
         return -1;
     }
-    *head = p;
+    *head = a;
 
-    line_t * r = p;
-    line_t * s = q;
+    line_t * b = a;
+    line_t * bprev = aprev;
     // Seek to 1 past the `end`.
-    int count = _seek(end-start+2, &r, &s);
-    *tail = s;
-    q->next = r;
+    int count = _seek(end-start+2, &b, &bprev);
+    *tail = bprev;
+    bprev->next = 0;
+    aprev->next = b;
+
+    return count;
+}
+
+void _insert_lines(line_t * head, line_t * tail, int dst) {
+    line_t * dest = buf_head;
+    line_t * dest_prev = 0;
+    _seek(dst+1, &dest, &dest_prev);
+
+    if (dest_prev == 0) {
+        // Copy to the beginning of the buffer
+        tail->next = buf_head;
+        buf_head = head;
+    } else {
+        // Copy to the middle of the buffer
+        dest_prev->next = head;
+        tail->next = dest;
+        if (dest == 0) {
+            // Actually this was the end of the buffer
+            buf_tail = tail;
+        }
+    }
+}
+
+int cmd_transfer(int start, int end, int dst) {
+    if (start <= dst && dst <= end) {
+        return -1;
+    }
+    if (dst > line_count) {
+        return -1;
+    }
+    line_t * src = buf_head;
+    line_t * src_prev;
+    _seek(start, &src, &src_prev);
+    if (src == 0) {
+        return -1;
+    }
+    line_t * copy_head = 0;
+    line_t * copy_tail = 0;
+    int count = 0;
+    for (int i = start; i <= end && src != 0; i++, src = src->next) {
+        line_t * new_line = malloc(sizeof(line_t));
+        int len = strlen(src->line)+1;
+        new_line->line = malloc(len);
+        bcopy(new_line->line, src->line, len);
+        new_line->next = 0;
+        if (copy_head == 0) copy_head = new_line;
+        if (copy_tail != 0) copy_tail->next = new_line;
+        copy_tail = new_line;
+        count++;
+    }
+
+    _insert_lines(copy_head, copy_tail, dst);
+    line_count += count;
     
     return count;
 }
@@ -164,44 +238,29 @@ int cmd_move(int start, int end, int dst) {
     if (start <= dst && dst <= end) {
         return -1;
     }
-    line_t * d = buf_head;
-    line_t * dp;
-    _seek(dst+1, &d, &dp);
-    if (dp == 0) {
+    if (dst > line_count) {
         return -1;
     }
 
     line_t * head;
     line_t * tail;
     int count = _cut_lines(start, end, &head, &tail);
-    if (dp == 0) {
-        // Move to the beginning of the buffer
-        tail->next = buf_head;
-        buf_head = head;
-    } else {
-        // Insert into the middle of the buffer
-        dp->next = head;
-        tail->next = d;
-        
-    }
+    if (dst > end) dst -= count;
+    _insert_lines(head, tail, dst);
+
     return count;
 }
 
 int cmd_change(int start, int end) {
     cmd_delete(start, end);
-    cmd_insert(start);
+    cmd_insert(start-1);
 }
 
 int cmd_delete(int start, int end) {
     line_t * p;
     line_t * q;
     int count = _cut_lines(start, end, &p, &q);
-    for (int i = 0; i < count; i++) {
-        q = p;
-        p = p->next;
-        free(q->line);
-        free(q);
-    }
+    _free_lines(p);
     line_count -= count;
     return count;
 }
@@ -241,26 +300,13 @@ int cmd_write(char * file) {
 }
 
 int cmd_insert(int line) {
-    line_t * p = buf_head;
-    line_t * q;
-    _seek(line, &p, &q);
-    if (p == 0) {
+    if (line > line_count) {
         return -1;
     }
-
     line_t * head;
     line_t * tail;
-    int new_lines = _read_lines(&head, &tail);
-
-    if (q == 0) {
-        // Insert at the beginning of the buffer
-        tail->next = buf_head;
-        buf_head = head;
-    } else {
-        // Insert in the middle of the buffer
-        q->next = head;
-        tail->next = p;
-    }
+    int new_lines = _input_lines(&head, &tail);
+    _insert_lines(head, tail, line);
     line_count += new_lines;
     return new_lines;
 }
@@ -268,10 +314,9 @@ int cmd_insert(int line) {
 int cmd_append() {
     line_t * head;
     line_t * tail;
-    int new_lines = _read_lines(&head, &tail);
+    int new_lines = _input_lines(&head, &tail);
     if (buf_head == 0) buf_head = head;
-    if (buf_tail == 0) buf_tail = tail;
-    else buf_tail->next = head;
+    if (buf_tail != 0) buf_tail->next = head;
     buf_tail = tail;
     line_count += new_lines;
     return new_lines;
@@ -285,6 +330,7 @@ int cmd_read(char * file) {
         return fd;
     }
 
+    _free_lines(buf_head);
     buf_head = 0;
     buf_tail = 0;
     
