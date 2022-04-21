@@ -40,7 +40,7 @@ lib:
 
 ##########################################################
 
-BINS=hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin ar.bin
+BINS=hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin ar.bin ed.bin
 
 bin.a: $(BINS)
 	mkdir -p bin && tar cf - --xform 's/.bin$$//' $^ | tar xf - -C bin && $(AR) rc $@ bin/* && rm -rf bin

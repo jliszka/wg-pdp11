@@ -13,9 +13,10 @@ int main(int argc, char ** argv) {
         unsigned char buf[64];
         int in = fread(fd, buf, 64);
         while (in > 0) {
-            print(buf);
+            fwrite(STDOUT, buf, in);
             in = fread(fd, buf, 64);
         }
+        fflush(STDOUT);
         if (in < 0) {
             return in;
         }

@@ -10,7 +10,7 @@ void println(char * str) {
 }
 
 void fprint(int fd, char * str) {
-    int len = strlen(str)+1;
+    int len = strlen(str);
 	int written = 0;
 	do {
 		written += fwrite(fd, str + written, len - written);
