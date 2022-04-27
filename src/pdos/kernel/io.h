@@ -16,6 +16,7 @@ typedef struct {
     int pos;
     int max_pos;
     char mode;
+    char refcount;
     vfile_t * vfile;
     unsigned char * buffer;
 } fd_t;

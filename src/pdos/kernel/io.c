@@ -63,10 +63,10 @@ int io_fopen(char * path, char mode) {
     }
 
     // Now that everything checks out, allocate the fd.
-    int fd;
-    fd_t * fdt = proc_fd_alloc(&fd);
-    if (fdt == 0) {
-        return ERR_OUT_OF_FDS;
+    fd_t * fdt;
+    int fd = proc_fd_alloc(&fdt);
+    if (fd < 0) {
+        return fd;
     }
     fdt->inode = path_info.inode;
     fdt->cur_block = -1;
@@ -98,18 +98,7 @@ int io_fopen(char * path, char mode) {
 int io_fclose(int fd) {
     io_fflush(fd);
 
-    fd_t * fdt = proc_fd(fd);
-
-    if (fdt->mode == 0) {
-        return -2;
-    }
-    
-    fdt->mode = 0;
-
-    if (fdt->buffer != 0) {
-        kfree(fdt->buffer);
-        fdt->buffer = 0;
-    }
+    proc_fd_free(fd);
 
     return 0;
 }

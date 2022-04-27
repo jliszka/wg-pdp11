@@ -3,7 +3,8 @@
 
 #include "io.h"
 
-fd_t * proc_fd_alloc(int * fd);
+int proc_fd_alloc(fd_t ** fdt);
+void proc_fd_free(int fd);
 fd_t * proc_fd(int fd);
 int proc_create();
 int proc_dup(int pid);
