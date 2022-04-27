@@ -141,9 +141,5 @@ int run(int argc, char *argv[]) {
         return pid;
     }
 
-    int ret = proc_exec(argc, argv);
-
-    proc_free(pid);
-
-    return ret;
+    return proc_exec(argc, argv);
 }

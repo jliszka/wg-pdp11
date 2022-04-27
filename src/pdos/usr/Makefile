@@ -38,14 +38,18 @@ lib:
 %.dasm: %.aout
 	$(OBJDUMP) -d $< > $@
 
+%.a:
+	mkdir -p arch && tar cf - --xform 's/.bin$$//' $^ | tar xf - -C arch && $(AR) rc $@ arch/* && rm -rf arch
+
 ##########################################################
 
-BINS=hello.bin files.bin rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin ar.bin ed.bin
+BINS=rm.bin ln.bin mkdir.bin rmdir.bin mv.bin cp.bin touch.bin cat.bin hexdump.bin ls.bin halt.bin load.bin mbr.bin ar.bin ed.bin
+TESTS=files.bin fork.bin hello.bin
 
 bin.a: $(BINS)
-	mkdir -p bin && tar cf - --xform 's/.bin$$//' $^ | tar xf - -C bin && $(AR) rc $@ bin/* && rm -rf bin
+tests.a: $(TESTS)
 
-all: $(BINS) bin.a
+all: $(BINS) $(TESTS) bin.a tests.a
 
 install:
 	cp *.bin *.a /opt/pidp11/systems/pdos/

@@ -8,22 +8,21 @@
 .macro syscall fn tr
 .globl \fn
 \fn:
-	push r5
-	mov sp, r5
-	trap \tr
-	pop r5
-	rts pc
+    push r5
+    mov sp, r5
+    trap \tr
+    mov r5, sp
+    pop r5
+    rts pc
 .endm
 
 
 .globl _exit
 _exit:
-	push r5
-	mov sp, r5
-	trap 0
-	pop r5
-1$:
-	br 1$  	# unreachable
+    push r5
+    mov sp, r5
+    trap 0
+    halt    # unreachable
 
 syscall _halt, 1
 syscall _fork, 2

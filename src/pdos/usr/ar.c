@@ -89,6 +89,8 @@ int main(int argc, char ** argv) {
         print("Writing ");
         println(buf);
 
+        unlink(buf);
+
         int dst = fopen(buf, 'w');
         if (dst < 0) {
             print("Failed to open dst: ");

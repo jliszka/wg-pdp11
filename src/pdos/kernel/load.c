@@ -10,7 +10,7 @@ int load_file(int fd, int code_page) {
     int start_address = 0;
 
     unsigned int base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(code_page));
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, code_page, VM_RW);
 
     int ret = 0;
     int pos = 0;

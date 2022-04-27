@@ -3,6 +3,7 @@
 .include "macros.s"
 
 .globl _userexec
+.globl _userret
 
 .text
 .even
@@ -23,13 +24,19 @@ ktrap:
     bic $0177400, r0    # get the low byte of the instruction to determine the trap number
     asl r0              # multiply by 2...
 
+    push r1
     push r2
     push r3
+    push r4
+    push r5             # (user stack pointer)
     jmp @ttable(r0)     # and address into the jump table
 
 ret:
+    pop r5              # (user stack pointer)
+    pop r4
     pop r3
     pop r2
+    pop r1
     rti
 
 .even
@@ -70,6 +77,33 @@ _userexec:
     push $020000
     rti                 # simultaneously set mode and "jump"
 
+
+# Return into a different context by setting the kernel stack pointer
+#   - return value
+#   - kernel stack page
+#   - kernel stack pointer
+_userret:
+    mov 6(sp), r0
+    mov 4(sp), r2
+    mov 2(sp), r3
+
+    # kernel stack page: unibus map low word
+    ash $13, r2
+    mov r2, @$0170230
+
+    # kernel stack page: unibus map high word
+    mov 4(sp), r2
+    ash $-3, r2
+    mov r2, @$0170232
+
+    # kernel stack page: CPU page table
+    mov 4(sp), r2
+    ash $7, r2
+    mov r2, @$0172354
+
+    mov r3, sp
+    jmp ret
+
 # r5 points to user-space stack:
 #     - exit code
 #     - return address for call to syscall stub
@@ -79,14 +113,13 @@ trap.exit:
     pop r0
     # current stack looks like:
     #     - return address for call to userexec()
-    #     - saved registers r1-r5
+    #     - saved kernel registers r1-r5
     #     - PSW for this trap
     #     - return address for this trap
-    #     - r2
-    # sp -> r3
-    # We want to ignore the first 4, restore the registers, and then return,
-    # effectively simulating the "return" from userexec()
-    add $8, sp
+    # sp -> saved user registers r1-r5
+    # We want to ignore the first 7, restore the kernel registers, and then return,
+    # effectively "returning" from userexec()
+    add $14, sp
 
     pop r5
     pop r4
@@ -102,7 +135,11 @@ trap.halt:
 
 # No arguments
 trap.fork:
-    mov $-1, r0
+    mov sp, r0
+    push r0
+    push r5                     # user stack pointer
+    jsr pc, _proc_dup
+    add $4, sp
     jmp ret
 
 # r5 points to user-space stack:

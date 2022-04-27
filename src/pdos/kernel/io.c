@@ -73,6 +73,7 @@ int io_fopen(char * path, char mode) {
     fdt->pos = pos;
     fdt->max_pos = pos;
     fdt->mode = mode;
+    fdt->refcount = 1;
 
     int device_type;
     switch (fs_is_device(fdt->inode, &device_type)) {

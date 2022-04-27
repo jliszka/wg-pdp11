@@ -10,16 +10,18 @@
 
 #define ARGV_BUFSIZE 64
 #define MAX_PROCS 16
-#define MAX_FDS 32
+#define MAX_FDS 16
 #define MAX_PROC_FDS 8
 
 extern int userexec(unsigned int sp);
+extern int userret(unsigned int ksp, unsigned int kernel_stack_page, int ret);
 
 typedef struct {
     unsigned char code_page;
     unsigned char stack_page;
     unsigned char kernel_stack_page;    
-    unsigned int sp;
+    unsigned int ksp;
+    int return_value;
     fd_t * fds[MAX_PROC_FDS];
 } pcb_t;
 
@@ -30,6 +32,9 @@ static int cur_pid = -1;
 void proc_init() {
     for (int i = 0; i < MAX_FDS; i++) {
         fd_table[i].refcount = 0;
+    }
+    for (int i = 0; i < MAX_PROCS; i++) {
+        ptable[i].code_page = 0;
     }
 }
 
@@ -106,8 +111,9 @@ int proc_create() {
 
     pt->code_page = vm_allocate_page();
     pt->stack_page = vm_allocate_page();
-    pt->kernel_stack_page = 6;
-    pt->sp = 0;
+    pt->kernel_stack_page = vm_use_page(vm_get_kernel_stack_page());
+    pt->ksp = 0;
+    pt->return_value = 0;
     for (int i = 0; i < MAX_PROC_FDS; i++) {
         pt->fds[i] = 0;
     }
@@ -120,39 +126,29 @@ int proc_create() {
     return i;
 }
 
-int proc_dup(int pid) {
-    int i;
-    for (i = 0; i < MAX_PROCS; i++) {
-        if (ptable[i].code_page == 0) {
+int proc_dup(unsigned int sp, unsigned int ksp) {
+    int child_pid;
+    for (child_pid = 0; child_pid < MAX_PROCS; child_pid++) {
+        if (ptable[child_pid].code_page == 0) {
             break;
         }
     }
-    if (i == MAX_PROCS) {
+    if (child_pid == MAX_PROCS) {
         return ERR_OUT_OF_PROCS;
     }
 
-    pcb_t * pt = &ptable[i];
-    pcb_t * ppt = &ptable[pid];
+    pcb_t * pt = &ptable[child_pid];
+    pcb_t * ppt = &ptable[cur_pid];
 
-    pt->code_page = ppt->code_page;
+    pt->code_page = vm_use_page(ppt->code_page);
     pt->stack_page = vm_allocate_page();
-    pt->sp = ppt->sp;
+    pt->kernel_stack_page = vm_allocate_page();
+    pt->ksp = ksp;
+    pt->return_value = 0;
 
-    // Copy stack from sp to the end of the page
-    unsigned int src_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(ppt->stack_page));
-    unsigned int dst_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE2);
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE2, vm_page_block_number(pt->stack_page));
+    //    ppt->return_value = i;
+    //    ppt->ksp = ksp;
 
-    unsigned int vm_base = vm_page_base_address(7);
-    bcopy(
-          (unsigned char *)(pt->sp - vm_base + dst_base_address),
-          (unsigned char *)(ppt->sp - vm_base + src_base_address),
-          VM_PAGE_SIZE - (ppt->sp - vm_base));
-
-    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
-    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE2);
-    
     // Copy file descriptors
     for (int i = 0; i < MAX_PROC_FDS; i++) {
         if (ppt->fds[i] != 0) {
@@ -160,14 +156,49 @@ int proc_dup(int pid) {
             pt->fds[i] = ppt->fds[i];
         }
     }
+
+    // Copy user stack from sp to the end of the page
+    unsigned int src_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, ppt->stack_page, VM_RO);
+    unsigned int dst_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE2);
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE2, pt->stack_page, VM_RW);
+
+    unsigned int vm_base = vm_page_base_address(7);
+    bcopy(
+          (unsigned char *)(sp - vm_base + dst_base_address),
+          (unsigned char *)(sp - vm_base + src_base_address),
+          VM_PAGE_SIZE - (sp - vm_base));
+
+    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
+    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE2);
+
+    // Copy kernel stack from ksp to the end of the the page
+    dst_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, pt->kernel_stack_page, VM_RW);
+
+    vm_base = vm_page_base_address(6);
+    bcopy(
+          (unsigned char *)(ksp - vm_base + dst_base_address),
+          (unsigned char *)ksp,
+          VM_PAGE_SIZE - (ksp - vm_base));
+    
+    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
+
+    return child_pid;
 }
 
 void proc_free(int pid) {
+    if (pid < 0 || pid >= MAX_PROCS) {
+        asm("halt");
+    }
     pcb_t * pt = &ptable[pid];
     vm_free_page(pt->code_page);
     vm_free_page(pt->stack_page);
+    vm_free_page(pt->kernel_stack_page);
     pt->code_page = 0;
     pt->stack_page = 0;
+    pt->kernel_stack_page = 0;
+    pt->ksp = 0;
     vm_user_unmap();
 
     for (int i = 0; i < MAX_PROC_FDS; i++) {
@@ -201,12 +232,13 @@ int proc_exec(int argc, char *argv[]) {
     unsigned int * start_address = (unsigned int *)vm_page_base_address(1);
 
     // Set up user page tables
-    vm_user_init(vm_page_block_number(pt->code_page), vm_page_block_number(pt->stack_page));
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE, vm_page_block_number(pt->stack_page));
+    vm_user_init(pt->code_page, pt->stack_page);
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, pt->stack_page, VM_RW);
 
     // Set up user stack
     unsigned int stack = -ARGV_BUFSIZE - 2 * sizeof(int);
-    unsigned int * p = (unsigned int *)(stack + vm_page_base_address(KERNEL_MAPPING_PAGE + 1));
+    unsigned int base_address = vm_page_base_address(KERNEL_MAPPING_PAGE + 1);
+    unsigned int * p = (unsigned int *)(stack + base_address);
     *p++ = argc;
     *p++ = -ARGV_BUFSIZE;
 
@@ -222,5 +254,32 @@ int proc_exec(int argc, char *argv[]) {
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
 
     // Call user program main.
-    return userexec(stack);
+    ret = userexec(stack);
+
+    // Program has exited.
+    proc_free(cur_pid);
+
+    // Find a new process to run.
+    int new_pid;
+    for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
+        if (ptable[new_pid].code_page != 0) {
+            break;
+        }
+    }
+
+    if (new_pid == MAX_PROCS) {
+        // No procs to run. This shouldn't happen, but exit
+        // to the root shell.
+        cur_pid = -1;
+        return ret;
+    }
+
+    proc_switch(new_pid);
+}
+
+void proc_switch(int new_pid) {
+    pcb_t * pt = &ptable[new_pid];
+    cur_pid = new_pid;
+    vm_user_init(pt->code_page, pt->stack_page);
+    userret(pt->ksp, pt->kernel_stack_page, pt->return_value);
 }
