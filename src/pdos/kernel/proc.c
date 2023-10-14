@@ -13,15 +13,21 @@
 #define MAX_FDS 16
 #define MAX_PROC_FDS 8
 
+#define STATE_RUNNABLE 1
+#define STATE_WAIT 2
+#define STATE_EXITED 3
+
 extern int userexec(unsigned int sp);
-extern int userret(unsigned int ksp, unsigned int kernel_stack_page, int ret);
+extern int kret(unsigned int ksp, unsigned int kernel_stack_page, unsigned int * kspp);
 
 typedef struct {
     unsigned char code_page;
     unsigned char stack_page;
     unsigned char kernel_stack_page;    
     unsigned int ksp;
-    int return_value;
+    int exit_code;
+    int state;
+    int ppid;
     fd_t * fds[MAX_PROC_FDS];
 } pcb_t;
 
@@ -77,8 +83,9 @@ int proc_fd_alloc(fd_t ** fdt_out) {
     return fd;
 }
 
-void proc_fd_free(int fd) {
-    fd_t * fdt = ptable[cur_pid].fds[fd];
+void proc_fd_free(int fd, int pid) {
+    if (pid == -1) pid = cur_pid;
+    fd_t * fdt = ptable[pid].fds[fd];
     fdt->refcount--;
     if (fdt->refcount == 0) {
         if (fdt->buffer != 0) {
@@ -86,7 +93,7 @@ void proc_fd_free(int fd) {
             fdt->buffer = 0;
         }
     }
-    ptable[cur_pid].fds[fd] = 0;
+    ptable[pid].fds[fd] = 0;
 }
 
 fd_t * proc_fd(int fd) {
@@ -113,7 +120,9 @@ int proc_create() {
     pt->stack_page = vm_allocate_page();
     pt->kernel_stack_page = vm_use_page(vm_get_kernel_stack_page());
     pt->ksp = 0;
-    pt->return_value = 0;
+    pt->exit_code = 0;
+    pt->state = STATE_RUNNABLE;
+    pt->ppid = -1;
     for (int i = 0; i < MAX_PROC_FDS; i++) {
         pt->fds[i] = 0;
     }
@@ -144,10 +153,9 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     pt->stack_page = vm_allocate_page();
     pt->kernel_stack_page = vm_allocate_page();
     pt->ksp = ksp;
-    pt->return_value = 0;
-
-    //    ppt->return_value = i;
-    //    ppt->ksp = ksp;
+    pt->exit_code = 0;
+    pt->state = STATE_RUNNABLE;
+    pt->ppid = cur_pid;
 
     // Copy file descriptors
     for (int i = 0; i < MAX_PROC_FDS; i++) {
@@ -199,11 +207,12 @@ void proc_free(int pid) {
     pt->stack_page = 0;
     pt->kernel_stack_page = 0;
     pt->ksp = 0;
-    vm_user_unmap();
+    pt->ppid = -1;
+    pt->state = 0;
 
     for (int i = 0; i < MAX_PROC_FDS; i++) {
         if (pt->fds[i] != 0) {
-            proc_fd_free(i);
+            proc_fd_free(i, pid);
         }
     }
 }
@@ -254,15 +263,37 @@ int proc_exec(int argc, char *argv[]) {
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
 
     // Call user program main.
-    ret = userexec(stack);
+    int exit_code = userexec(stack);
 
-    // Program has exited.
-    proc_free(cur_pid);
+    // Need to reload pt because we might have switched contexts
+    pt = &ptable[cur_pid];
+    pt->exit_code = exit_code;
+
+    if (pt->ppid == -1) {
+        // Program has exited and has no parent.
+        proc_free(cur_pid);
+    } else {
+        // If the parent was waiting for us to exit,
+        // make the parent runnable.
+        pt->state = STATE_EXITED;
+        pcb_t * ppt = &ptable[pt->ppid];
+        if (ppt->state == STATE_WAIT) {
+            ppt->state = STATE_RUNNABLE;
+        }
+    }
+
+    return proc_switch();
+}
+
+int proc_switch() {
+    int new_pid;
+
+    // Save curent ksp
+    pcb_t * pt = &ptable[cur_pid];
 
     // Find a new process to run.
-    int new_pid;
     for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
-        if (ptable[new_pid].code_page != 0) {
+        if (ptable[new_pid].state == STATE_RUNNABLE) {
             break;
         }
     }
@@ -270,16 +301,31 @@ int proc_exec(int argc, char *argv[]) {
     if (new_pid == MAX_PROCS) {
         // No procs to run. This shouldn't happen, but exit
         // to the root shell.
+        // TODO: asm("wait");
         cur_pid = -1;
-        return ret;
+        return pt->exit_code;
     }
 
-    proc_switch(new_pid);
+    pcb_t * new_pt = &ptable[new_pid];
+    cur_pid = new_pid;
+    vm_user_init(new_pt->code_page, new_pt->stack_page);
+    kret(new_pt->ksp, new_pt->kernel_stack_page, &(pt->ksp));
+    return 0;
 }
 
-void proc_switch(int new_pid) {
-    pcb_t * pt = &ptable[new_pid];
-    cur_pid = new_pid;
-    vm_user_init(pt->code_page, pt->stack_page);
-    userret(pt->ksp, pt->kernel_stack_page, pt->return_value);
+int proc_wait(int pid) {
+    volatile pcb_t * pt = &ptable[pid];
+    volatile pcb_t * ppt = &ptable[cur_pid];
+    if (pt->state == 0) {
+        return -1; // TODO: better error code
+    }
+
+    while (pt->state != STATE_EXITED) {
+        ppt->state = STATE_WAIT;
+        proc_switch();
+    }
+
+    int ret = pt->exit_code;
+    proc_free(pid);
+    return ret;
 }

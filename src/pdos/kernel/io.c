@@ -99,7 +99,7 @@ int io_fopen(char * path, char mode) {
 int io_fclose(int fd) {
     io_fflush(fd);
 
-    proc_fd_free(fd);
+    proc_fd_free(fd, -1);
 
     return 0;
 }

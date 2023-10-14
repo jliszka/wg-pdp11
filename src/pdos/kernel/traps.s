@@ -3,7 +3,7 @@
 .include "macros.s"
 
 .globl _userexec
-.globl _userret
+.globl _kret
 
 .text
 .even
@@ -24,7 +24,6 @@ ktrap:
     bic $0177400, r0    # get the low byte of the instruction to determine the trap number
     asl r0              # multiply by 2...
 
-    push r1
     push r2
     push r3
     push r4
@@ -36,7 +35,7 @@ ret:
     pop r4
     pop r3
     pop r2
-    pop r1
+
     rti
 
 .even
@@ -61,13 +60,13 @@ ttable:
     .word trap.rmdir    # 13
     .word trap.stat     # 14
     .word trap.mkfs     # 15
+    .word trap.wait     # 16
 
 # "Reverse" trap to jump to user mode program. Args:
 #   - user mode stack pointer
 _userexec:
     mov 2(sp), r0       # user mode stack pointer
 
-    push r1
     push r2
     push r3
     push r4
@@ -79,30 +78,49 @@ _userexec:
 
 
 # Return into a different context by setting the kernel stack pointer
-#   - return value
-#   - kernel stack page
-#   - kernel stack pointer
-_userret:
-    mov 6(sp), r0
-    mov 4(sp), r2
-    mov 2(sp), r3
-
+#   - 6(sp) address to place old ksp
+#   - 4(sp) kernel stack page
+#   - 2(sp) kernel stack pointer
+#   - return address
+_kret:
     # kernel stack page: unibus map low word
-    ash $13, r2
-    mov r2, @$0170230
+    mov 4(sp), r1   # kernel stack page
+    ash $13, r1
+    mov r1, @$0170230
 
     # kernel stack page: unibus map high word
-    mov 4(sp), r2
-    ash $-3, r2
-    mov r2, @$0170232
+    mov 4(sp), r1
+    ash $-3, r1
+    mov r1, @$0170232
 
-    # kernel stack page: CPU page table
-    mov 4(sp), r2
+
+    # r0: address of old stack pointer struct field
+    mov 6(sp), r0
+
+    # r1: new kernel stack pointer
+    mov 2(sp), r1
+
+    push r2
+
+    # r2: kernel stack page: CPU page table
+    mov 6(sp), r2       # used to be 4(sp)
     ash $7, r2
-    mov r2, @$0172354
 
-    mov r3, sp
-    jmp ret
+    push r3
+    push r4
+    push r5
+
+    mov sp, (r0)        # save old ksp
+    mov r2, @$0172354   # swap page table
+    mov r1, sp          # restore new ksp
+
+    pop r5
+    pop r4
+    pop r3
+    pop r2
+
+    rts pc
+
 
 # r5 points to user-space stack:
 #     - exit code
@@ -113,19 +131,19 @@ trap.exit:
     pop r0
     # current stack looks like:
     #     - return address for call to userexec()
-    #     - saved kernel registers r1-r5
+    #     - saved kernel registers r2-r5
     #     - PSW for this trap
     #     - return address for this trap
-    # sp -> saved user registers r1-r5
-    # We want to ignore the first 7, restore the kernel registers, and then return,
+    # sp -> saved user registers r2-r5
+    # We want to ignore the first 6, restore the kernel registers, and then return,
     # effectively "returning" from userexec()
-    add $14, sp
+    add $12, sp
 
     pop r5
     pop r4
     pop r3
     pop r2
-    pop r1
+
     rts pc
 
 # No arguments
@@ -135,11 +153,21 @@ trap.halt:
 
 # No arguments
 trap.fork:
+    push $2$                     # return address
+    push r2                     # set up the stack for the child
+    push r3
+    push r4
+    push r5
+
     mov sp, r0
-    push r0
-    push r5                     # user stack pointer
+    push r0                     # ksp
+    push r5                     # user sp
     jsr pc, _proc_dup
-    add $4, sp
+    add $14, sp
+1$:
+    jmp ret
+2$:
+    clr r0                      # child return value
     jmp ret
 
 # r5 points to user-space stack:
@@ -457,4 +485,15 @@ trap.stat:
 # No arguments
 trap.mkfs:
     jsr pc, _fs_mkfs
+    jmp ret
+
+
+
+# r5 points to user-space stack:
+#     - child pid
+# r5 -> old r5
+trap.wait:
+    mfpi 4(r5)
+    jsr pc, _proc_wait
+    add $2, sp
     jmp ret

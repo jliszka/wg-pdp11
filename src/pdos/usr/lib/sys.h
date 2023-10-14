@@ -19,5 +19,6 @@ int mkdir(char * dirname);
 int rmdir(char * dirname);
 int stat(char * path, stat_t * stat);
 int mkfs();
+int wait(int pid);
 
 #endif
