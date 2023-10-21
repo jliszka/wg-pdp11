@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "proc.h"
 #include "rk.h"
 #include "stdlib.h"
 #include "bitvec.h"
@@ -307,7 +308,8 @@ int fs_resolve_path(char * path, path_info_t * path_info) {
     int nparts = strntok(buf, '/', path_parts, 8);
 
     int i = 0;
-    int dir_inode = pwd;
+    int dir_inode = proc_cwd();
+
     if (path[0] == '/') {
         dir_inode = ROOT_DIR_INODE;
         i = 1;

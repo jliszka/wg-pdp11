@@ -40,3 +40,5 @@ syscall _rmdir, 13
 syscall _stat, 14
 syscall _mkfs, 15
 syscall _wait, 16
+syscall _chdir, 17
+syscall _getcwd, 18

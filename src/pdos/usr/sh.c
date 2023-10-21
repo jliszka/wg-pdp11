@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include <sys.h>
 
-char path[32] = {'/', 0};
-
 int main() {
+    char path[32];
     char buf[64];
     char cmd[256];
     char * argv[16];
+
     while (1) {
+        getcwd(path, 32);
         print(path);
         print("$ ");
         fflush(STDOUT);
@@ -15,6 +16,11 @@ int main() {
         input(256, cmd);
         int argc = strntok(cmd, ' ', argv, 16);
         if (argc == 0) continue;
+
+        if (argc == 2 && strncmp(argv[0], "cd", 3) == 0) {
+            chdir(argv[1]);
+            continue;
+        }
 
         int pid = fork();
         if (pid == 0) {

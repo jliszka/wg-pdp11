@@ -2,9 +2,6 @@
 
 .include "macros.s"
 
-.globl _userexec
-.globl _kret
-
 .text
 .even
 
@@ -61,65 +58,8 @@ ttable:
     .word trap.stat     # 14
     .word trap.mkfs     # 15
     .word trap.wait     # 16
-
-# "Reverse" trap to jump to user mode program. Args:
-#   - user mode stack pointer
-_userexec:
-    mov 2(sp), r0       # user mode stack pointer
-
-    push r2
-    push r3
-    push r4
-    push r5
-
-    push $0140000
-    push $020000
-    rti                 # simultaneously set mode and "jump"
-
-
-# Return into a different context by setting the kernel stack pointer
-#   - 6(sp) address to place old ksp
-#   - 4(sp) kernel stack page
-#   - 2(sp) kernel stack pointer
-#   - return address
-_kret:
-    # kernel stack page: unibus map low word
-    mov 4(sp), r1   # kernel stack page
-    ash $13, r1
-    mov r1, @$0170230
-
-    # kernel stack page: unibus map high word
-    mov 4(sp), r1
-    ash $-3, r1
-    mov r1, @$0170232
-
-
-    # r0: address of old stack pointer struct field
-    mov 6(sp), r0
-
-    # r1: new kernel stack pointer
-    mov 2(sp), r1
-
-    push r2
-
-    # r2: kernel stack page: CPU page table
-    mov 6(sp), r2       # used to be 4(sp)
-    ash $7, r2
-
-    push r3
-    push r4
-    push r5
-
-    mov sp, (r0)        # save old ksp
-    mov r2, @$0172354   # swap page table
-    mov r1, sp          # restore new ksp
-
-    pop r5
-    pop r4
-    pop r3
-    pop r2
-
-    rts pc
+    .word trap.chdir    # 17
+    .word trap.getcwd   # 18
 
 
 # r5 points to user-space stack:
@@ -226,39 +166,6 @@ trap.fopen:
     jmp ret
 
 
-# Read from user-space buffer (top of stack)
-# returns: address after the last byte copied (r0)
-readbuf:
-    mov 2(sp), r0       # buffer to copy into
-    mov 4(sp), r1       # user-space pointer
-
-    push r2
-
-    bit r1, $1          # check if the address is even
-    beq 1$
-
-    dec r1              # if odd, copy only the first byte
-    mfpi (r1)+
-    pop r2
-    br 2$
-
-1$:
-    mfpi (r1)+          # read a word from the previous address space
-    pop r2
-    movb r2, (r0)+      # copy the low byte to destination buffer
-    beq 3$              # if we copied a 0 byte, we're done
-2$:
-    ash $-8, r2
-    movb r2, (r0)+      # copy the high byte to destination buffer
-    beq 3$              # if we copied a 0 byte, we're done
-
-    br 1$               # go around again!
-
-3$:
-    pop r2
-    rts pc
-
-
 # r5 points to user-space stack:
 #     - fd
 #     - return address for call to syscall stub
@@ -292,13 +199,13 @@ trap.fread:
     mfpi 8(r5)          # number of bytes to read
     pop r0
     tst r0              # nothing to read? return
-    beq 6$
+    beq 3$
 
     cmp r0, $bufsize    # don't copy over more than the size of the buffer
-    ble 5$
+    ble 1$
     mov $bufsize, r0
 
-5$:
+1$:
     push r0             # number of bytes to read
     push $buf           # destination buffer
     mfpi 4(r5)          # file descriptor
@@ -307,41 +214,19 @@ trap.fread:
     pop r5
 
     push r0             # save original value of r0
-    beq 4$              # no bytes read, return
+    beq 2$              # no bytes read, return
 
-    mfpi 6(r5)          # destination buffer => r1
-    pop r1
-
-    mov $buf, r2
-    bit r1, $1          # check if the address is even
-    beq 1$
-
-    dec r1
-    mfpi (r1)           # copy bytes from userspace destination buffer to stack
-    mov sp, r3          # use r3 instead of sp because sp can only point to even addresses
-    inc r3
-    br 2$
-
-1$:
-    mfpi (r1)           # copy bytes from userspace destination buffer to stack
-    mov sp, r3
-    movb (r2)+, (r3)+   # overwrite with data from $buf
-    dec r0
-    beq 3$
+    mfpi 6(r5)          # destination buffer in user space
+    push $buf           # source buffer in kernel space
+    jsr pc, writebuf
+    add $4, sp
 
 2$:
-    movb (r2)+, (r3)+
-    dec r0
-    beq 3$
-    mtpi (r1)+          # copy it back to userspace destination buffer
-    br 1$
-3$:
-    mtpi (r1)+          # copy final word to userspace destination buffer
-
-4$:
     pop r0              # number of bytes read
-6$:
+3$:
     jmp ret
+
+
 
 # r5 points to user-space stack:
 #     - len
@@ -520,7 +405,6 @@ trap.mkfs:
     jmp ret
 
 
-
 # r5 points to user-space stack:
 #     - child pid
 # r5 -> old r5
@@ -529,3 +413,43 @@ trap.wait:
     jsr pc, _proc_wait
     add $2, sp
     jmp ret
+
+
+# r5 points to user-space stack:
+#     - path string
+# r5 -> old r5
+trap.chdir:
+    mfpi 4(r5)          # target dir name
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
+
+    push $buf
+    jsr pc, _proc_chdir
+    add $2, sp
+    jmp ret
+
+
+# r5 points to user-space stack:
+#     - buffer size
+#     - destination buf
+# r5 -> old r5
+trap.getcwd:
+    mfpi 6(r5)          # buffer size
+    push $buf
+    jsr pc, _proc_getcwd
+    add $4, sp
+
+    tst r0
+    ble 1$             # failed or nothing to copy? return
+
+    push r0             # r0 has the size of the string
+    mfpi 4(r5)          # user space destination
+    push $buf
+    jsr pc, writebuf
+    add $4, sp
+
+1$:
+    pop r0
+    jmp ret
+

@@ -5,6 +5,7 @@
 #include "kmalloc.h"
 #include "vm.h"
 #include "fs_defs.h"
+#include "fs.h"
 #include "errno.h"
 #include "io.h"
 
@@ -19,6 +20,7 @@
 
 extern int userexec(unsigned int sp);
 extern int kret(unsigned int ksp, unsigned int kernel_stack_page, unsigned int * kspp);
+extern unsigned int pwd;
 
 typedef struct {
     unsigned char code_page;
@@ -28,6 +30,7 @@ typedef struct {
     int exit_code;
     int state;
     int ppid;
+    int cwd;
     fd_t * fds[MAX_PROC_FDS];
 } pcb_t;
 
@@ -111,6 +114,13 @@ fd_t * proc_fd(int fd) {
     return ptable[cur_pid].fds[fd];
 }
 
+int proc_cwd() {
+    if (cur_pid < 0) {
+        return pwd;
+    }
+    return ptable[cur_pid].cwd;
+}
+
 int proc_create() {
     int i;
     for (i = 0; i < MAX_PROCS; i++) {
@@ -131,6 +141,7 @@ int proc_create() {
     pt->exit_code = 0;
     pt->state = STATE_RUNNABLE;
     pt->ppid = -1;
+    pt->cwd = ROOT_DIR_INODE;
 
     cur_pid = i;
 
@@ -249,6 +260,7 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     pt->exit_code = 0;
     pt->state = STATE_RUNNABLE;
     pt->ppid = cur_pid;
+    pt->cwd = ppt->cwd;
 
     // Copy file descriptors
     for (int i = 0; i < MAX_PROC_FDS; i++) {
@@ -302,6 +314,7 @@ void proc_free(int pid) {
     pt->kernel_stack_page = 0;
     pt->ksp = 0;
     pt->ppid = -1;
+    pt->cwd = 0;
     pt->state = 0;
 
     _proc_free_fds(pt, pid);
@@ -351,4 +364,24 @@ int proc_wait(int pid) {
     int ret = pt->exit_code;
     proc_free(pid);
     return ret;
+}
+
+int proc_chdir(char * path) {
+    path_info_t path_info;
+    int ret = fs_resolve_path(path, &path_info);
+    if (ret < 0) {
+        return ret;
+    }
+    if (!fs_is_dir(path_info.inode)) {
+        return ERR_NOT_A_DIRECTORY;
+    }
+
+    ptable[cur_pid].cwd = path_info.inode;
+    return 0;
+}
+
+int proc_getcwd(char * path, int len) {
+    char * end = fs_build_path(ptable[cur_pid].cwd, path, len);
+    *end = 0;
+    return (int)(end - path + 1);
 }
