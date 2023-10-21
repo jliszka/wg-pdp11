@@ -6,7 +6,7 @@
 void exit(int status);
 void halt();
 int fork();
-int exec(char * path, char * argv[]);
+int exec(int argc, char * argv[]);
 int fopen(char * path, char mode);
 int fclose(int fd);
 int fseek(int fd, unsigned int pos);

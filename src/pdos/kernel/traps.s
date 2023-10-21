@@ -171,12 +171,40 @@ trap.fork:
     jmp ret
 
 # r5 points to user-space stack:
-#     - arguments (char **)
-#     - path to executable
+#     - argv (char**)
+#     - argc
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.exec:
-    mov $-1, r0
+    mfpi 4(r5)          # argc
+    pop r4
+
+    mfpi 6(r5)          # argv
+    pop r2
+
+    mov r4, r5          # save original argc
+
+    mov $buf, r3        # argv dest
+    mov r4, r0          # arg dest = argc * 2 + buf
+    asl r0
+    add $buf, r0
+
+1$:
+    mov r0, (r3)+       # record start of string in argv
+
+    mfpi (r2)+
+    push r0
+    jsr pc, readbuf     # copy from (r3) in user space to r0, update r0
+    add $4, sp
+
+    sob r4, 1$
+
+    push $buf
+    push r5             # argc
+    jsr pc, _proc_exec
+
+    add $4, sp
+
     jmp ret
 
 # r5 points to user-space stack:
@@ -199,9 +227,12 @@ trap.fopen:
 
 
 # Read from user-space buffer (top of stack)
+# returns: address after the last byte copied (r0)
 readbuf:
     mov 2(sp), r0       # buffer to copy into
     mov 4(sp), r1       # user-space pointer
+
+    push r2
 
     bit r1, $1          # check if the address is even
     beq 1$
@@ -224,6 +255,7 @@ readbuf:
     br 1$               # go around again!
 
 3$:
+    pop r2
     rts pc
 
 

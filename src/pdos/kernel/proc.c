@@ -40,7 +40,7 @@ void proc_init() {
         fd_table[i].refcount = 0;
     }
     for (int i = 0; i < MAX_PROCS; i++) {
-        ptable[i].code_page = 0;
+        ptable[i].state = 0;
     }
 }
 
@@ -96,6 +96,14 @@ void proc_fd_free(int fd, int pid) {
     ptable[pid].fds[fd] = 0;
 }
 
+void _proc_free_fds(pcb_t * pt, int pid) {
+    for (int i = 0; i < MAX_PROC_FDS; i++) {
+        if (pt->fds[i] != 0) {
+            proc_fd_free(i, pid);
+        }
+    }
+}
+
 fd_t * proc_fd(int fd) {
     if (cur_pid < 0) {
         return 0;
@@ -106,7 +114,7 @@ fd_t * proc_fd(int fd) {
 int proc_create() {
     int i;
     for (i = 0; i < MAX_PROCS; i++) {
-        if (ptable[i].code_page == 0) {
+        if (ptable[i].state == 0) {
             break;
         }
     }
@@ -116,29 +124,114 @@ int proc_create() {
 
     pcb_t * pt = &ptable[i];
 
-    pt->code_page = vm_allocate_page();
+    pt->code_page = 0;
     pt->stack_page = vm_allocate_page();
     pt->kernel_stack_page = vm_use_page(vm_get_kernel_stack_page());
     pt->ksp = 0;
     pt->exit_code = 0;
     pt->state = STATE_RUNNABLE;
     pt->ppid = -1;
-    for (int i = 0; i < MAX_PROC_FDS; i++) {
-        pt->fds[i] = 0;
-    }
 
     cur_pid = i;
 
+    return i;
+}
+
+int _proc_load(char * path, int code_page) {
+    int fd = io_fopen(path, 'r');
+    if (fd == ERR_FILE_NOT_FOUND && path[0] != '/') {
+        // TODO: resolve path in the shell
+        char buf[64];
+        strncpy(buf, "/bin/", 6);
+        strncpy(buf+5, path, 64-5-1);
+        fd = io_fopen(buf, 'r');
+    }
+    if (fd < 0) {
+        println("Command not found");
+        return fd;
+    }
+
+    int ret = load_file(fd, code_page);
+
+    io_fclose(fd);
+
+    return ret;
+}
+
+unsigned int _proc_init_stack(int argc, char * argv[], int stack_page) {
+    vm_map_kernel_page(KERNEL_MAPPING_PAGE, stack_page, VM_RW);
+
+    // Set up user stack
+    unsigned int stack = -ARGV_BUFSIZE - 2 * sizeof(int);
+    unsigned int base_address = vm_page_base_address(KERNEL_MAPPING_PAGE + 1);
+    unsigned int * p = (unsigned int *)(stack + base_address);
+    *p++ = argc;
+    *p++ = -ARGV_BUFSIZE;
+
+    // Copy argv to the stack page in user space
+    char ** user_argv = (char **)p;
+    char * dst = (char *)(user_argv + argc);
+    for (int i = 0; i < argc; i++) {
+        user_argv[i] = (char *)((dst - (char *)user_argv) - ARGV_BUFSIZE);
+        dst = strncpy(dst, argv[i], ARGV_BUFSIZE);
+        dst++;
+    }
+
+    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
+
+    return stack;
+}
+
+int proc_exec(int argc, char *argv[]) {
+    pcb_t * pt = &ptable[cur_pid];
+
+    if (pt->code_page != 0) {
+        vm_free_page(pt->code_page);
+    }
+    pt->code_page = vm_allocate_page();
+
+    // Load program into memory
+    int ret = _proc_load(argv[0], pt->code_page);
+    if (ret != 0) return ret;
+
+    // Initialize stdin and stdout
+    _proc_free_fds(pt, cur_pid);
     io_fopen("/dev/tty", 'r');
     io_fopen("/dev/tty", 'w');    
-    
-    return i;
+
+    // Set up user page tables
+    vm_user_init(pt->code_page, pt->stack_page);
+
+    // Set up the stack
+    int stack = _proc_init_stack(argc, argv, pt->stack_page);
+
+    // Call user program main.
+    int exit_code = userexec(stack);
+
+    // Need to reload pt because we might have switched contexts
+    pt = &ptable[cur_pid];
+    pt->exit_code = exit_code;
+
+    if (pt->ppid == -1) {
+        // Program has exited and has no parent.
+        proc_free(cur_pid);
+    } else {
+        // If the parent was waiting for us to exit,
+        // make the parent runnable.
+        pt->state = STATE_EXITED;
+        pcb_t * ppt = &ptable[pt->ppid];
+        if (ppt->state == STATE_WAIT) {
+            ppt->state = STATE_RUNNABLE;
+        }
+    }
+
+    return proc_switch();
 }
 
 int proc_dup(unsigned int sp, unsigned int ksp) {
     int child_pid;
     for (child_pid = 0; child_pid < MAX_PROCS; child_pid++) {
-        if (ptable[child_pid].code_page == 0) {
+        if (ptable[child_pid].state == 0) {
             break;
         }
     }
@@ -195,6 +288,7 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     return child_pid;
 }
 
+
 void proc_free(int pid) {
     if (pid < 0 || pid >= MAX_PROCS) {
         asm("halt");
@@ -210,80 +304,9 @@ void proc_free(int pid) {
     pt->ppid = -1;
     pt->state = 0;
 
-    for (int i = 0; i < MAX_PROC_FDS; i++) {
-        if (pt->fds[i] != 0) {
-            proc_fd_free(i, pid);
-        }
-    }
+    _proc_free_fds(pt, pid);
 }
 
-int proc_exec(int argc, char *argv[]) {
-    pcb_t * pt = &ptable[cur_pid];
-
-    int fd = io_fopen(argv[0], 'r');
-    if (fd == ERR_FILE_NOT_FOUND && argv[0][0] != '/') {
-        char buf[64];
-        strncpy(buf, "/bin/", 6);
-        strncpy(buf+5, argv[0], 64-5-1);
-        fd = io_fopen(buf, 'r');
-    }
-    if (fd < 0) {
-        println("Command not found");
-        return fd;
-    }
-
-    int ret = load_file(fd, pt->code_page);
-
-    io_fclose(fd);
-
-    if (ret != 0) return ret;
-    
-    unsigned int * start_address = (unsigned int *)vm_page_base_address(1);
-
-    // Set up user page tables
-    vm_user_init(pt->code_page, pt->stack_page);
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE, pt->stack_page, VM_RW);
-
-    // Set up user stack
-    unsigned int stack = -ARGV_BUFSIZE - 2 * sizeof(int);
-    unsigned int base_address = vm_page_base_address(KERNEL_MAPPING_PAGE + 1);
-    unsigned int * p = (unsigned int *)(stack + base_address);
-    *p++ = argc;
-    *p++ = -ARGV_BUFSIZE;
-
-    // Copy argv to the stack page in user space
-    char ** user_argv = (char **)p;
-    char * dst = (char *)(user_argv + argc);
-    for (int i = 0; i < argc; i++) {
-        user_argv[i] = (char *)((dst - (char *)user_argv) - ARGV_BUFSIZE);
-        dst = strncpy(dst, argv[i], ARGV_BUFSIZE);
-        dst++;
-    }
-
-    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
-
-    // Call user program main.
-    int exit_code = userexec(stack);
-
-    // Need to reload pt because we might have switched contexts
-    pt = &ptable[cur_pid];
-    pt->exit_code = exit_code;
-
-    if (pt->ppid == -1) {
-        // Program has exited and has no parent.
-        proc_free(cur_pid);
-    } else {
-        // If the parent was waiting for us to exit,
-        // make the parent runnable.
-        pt->state = STATE_EXITED;
-        pcb_t * ppt = &ptable[pt->ppid];
-        if (ppt->state == STATE_WAIT) {
-            ppt->state = STATE_RUNNABLE;
-        }
-    }
-
-    return proc_switch();
-}
 
 int proc_switch() {
     int new_pid;

@@ -40,4 +40,4 @@ install:
 	cp *.a ../
 
 clean:
-	rm -f *.o *.obj *.bin *.lst *.aout *.a
+	rm -f *~ *.o *.obj *.bin *.lst *.aout *.a

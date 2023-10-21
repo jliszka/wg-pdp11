@@ -16,5 +16,10 @@ int main()
     print("\033[2J\033[H");
     println("Welcome to PDOS.");
 
+    proc_create();
+    char * argv[] = {"/bin/sh"};
+    proc_exec(1, argv);
+
+    // Fall back to kernel's built-in shell
     cmd();
 }

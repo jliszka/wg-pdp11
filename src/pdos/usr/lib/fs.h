@@ -1,6 +1,9 @@
 #ifndef FS_H
 #define FS_H
 
+#define STDIN 0
+#define STDOUT 1
+
 typedef struct {
     unsigned int inode;
     char filename[14];

@@ -7,7 +7,11 @@ int main(int argc, char ** argv) {
     filename = argv[1];
   }
   int fd = fopen(filename, 'w');
-  fwrite(fd, "Some text\r\n", 11);
+  char * text = "Some text\r\n";
+  if (argc > 2) {
+      text = argv[2];
+  }
+  fwrite(fd, text, strlen(text)+1);
   fclose(fd);
 
   char buf[64];
