@@ -1,6 +1,6 @@
-bin/
-local/
-deps/
+/bin/
+/local/
+/deps/
 *.bin
 *.lst
 *.obj
