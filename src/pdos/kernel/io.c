@@ -7,23 +7,14 @@
 #include "errno.h"
 #include "kmalloc.h"
 
-int io_file_seek(int fd, unsigned int pos);
-int io_file_read(int fd, unsigned char * buf, unsigned int len);
-int io_file_write(int fd, unsigned char * buf, unsigned int len);
-int io_file_flush(int fd);
-
-int io_tty_read(int fd, unsigned char * buf, unsigned int len);
-int io_tty_write(int fd, unsigned char * buf, unsigned int len);
-int io_tty_flush(int fd);
-
-int io_ptr_read(int fd, unsigned char * buf, unsigned int len);
-
-int io_hd_seek(int fd, unsigned int pos);
-int io_hd_read(int fd, unsigned char * buf, unsigned int len);
-int io_hd_write(int fd, unsigned char * buf, unsigned int len);
-int io_hd_flush(int fd);
+#include "io_file.h"
+#include "io_tty.h"
+#include "io_ptr.h"
+#include "io_hd.h"
+#include "io_pipe.h"
 
 static vfile_t vfile = { &io_file_seek, &io_file_read, &io_file_write, &io_file_flush };
+static vfile_t vfile_pipe = { 0, &io_pipe_read, &io_pipe_write, &io_pipe_flush };
 static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
     { 0, &io_tty_read, &io_tty_write, &io_tty_flush },
     { 0, &io_ptr_read, 0, 0 },
@@ -31,6 +22,44 @@ static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
 };
 
 int io_reset() {
+}
+
+int io_pipe(int * writefd, int * readfd) {
+    fd_t * w_fdt;
+    int w_fd = proc_fd_alloc(&w_fdt);
+    if (w_fd < 0) {
+        return w_fd;
+    }
+    fd_t * r_fdt;
+    int r_fd = proc_fd_alloc(&r_fdt);
+    if (r_fd < 0) {
+        proc_fd_free(w_fd, -1);
+        return r_fd;
+    }
+
+    w_fdt->inode = -1;
+    w_fdt->cur_block = -1;
+    w_fdt->pos = 0;
+    w_fdt->max_pos = 0;
+    w_fdt->mode = 'w';
+    w_fdt->refcount = 2;
+    w_fdt->vfile = &vfile_pipe;
+    w_fdt->buffer = kmalloc();
+    w_fdt->pipe_fdt = r_fdt;
+
+    r_fdt->inode = -1;
+    r_fdt->cur_block = -1;
+    r_fdt->pos = 0;
+    r_fdt->max_pos = 0;
+    r_fdt->mode = 'r';
+    r_fdt->refcount = 2;
+    r_fdt->vfile = &vfile_pipe;
+    r_fdt->buffer = w_fdt->buffer;
+    r_fdt->pipe_fdt = w_fdt;
+
+    *writefd = w_fd;
+    *readfd = r_fd;
+    return 0;
 }
 
 int io_fopen(char * path, char mode) {
@@ -98,7 +127,6 @@ int io_fopen(char * path, char mode) {
 
 int io_fclose(int fd) {
     io_fflush(fd);
-
     proc_fd_free(fd, -1);
 
     return 0;
@@ -113,27 +141,10 @@ int io_fseek(int fd, unsigned int pos) {
     return fn(fd, pos);
 }
 
-int io_file_seek(int fd, unsigned int pos) {
-    fd_t * fdt = proc_fd(fd);
-    if (fdt->mode == 0) {
-        return -2;
-    }
-    int filesize = fs_filesize(fdt->inode);
-    if (pos > filesize && fdt->mode == 'r') {
-        // Don't allow reading past the end of the file.
-        pos = filesize;
-    }
-    fdt->pos = pos;
-    if (fdt->pos > fdt->max_pos) {
-      fdt->max_pos = fdt->pos;
-    }
-    return 0;
-}
-
 int io_fread(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
     if (fdt->mode != 'r' && fdt->mode != 'd') {
-        return -1;
+        return ERR_WRONG_FILE_MODE;
     }
     
     int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->fread;
@@ -144,91 +155,10 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
     return fn(fd, buf, len);
 }
 
-int io_file_read(int fd, unsigned char * buf, unsigned int len) {
-    fd_t * fdt = proc_fd(fd);
-
-    // Read only up to the end of the file
-    int filesize = fs_filesize(fdt->inode);
-    if (fdt->pos + len > filesize) {
-        len = filesize - fdt->pos;
-    }
-    if (len <= 0) {
-        // EOF
-        return 0;
-    }
-
-    int remaining = len;
-    do {
-        int block_offset = fs_offset_from_pos(fdt->pos);
-
-        if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
-            // Load a new block if needed
-            fdt->cur_block = fs_block_from_pos(fdt->pos);
-            fs_read_block(fdt->inode, fdt->cur_block, fdt->buffer);
-        }
-
-        int in_sector_bytes = remaining;
-        if (block_offset + in_sector_bytes > BYTES_PER_SECTOR) {
-            in_sector_bytes = BYTES_PER_SECTOR - block_offset;
-        }
-
-        bcopy(buf, fdt->buffer + block_offset, in_sector_bytes);
-
-        // Advance the current position
-        fdt->pos += in_sector_bytes;
-        remaining -= in_sector_bytes;
-        buf += in_sector_bytes;
-
-    } while (remaining > 0);
-
-    return len;
-}
-
-int io_hd_read(int fd, unsigned char * buf, unsigned int len) {
-    fd_t * fdt = proc_fd(fd);
-
-    if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
-        // Load a new block if needed
-        fdt->cur_block = fs_block_from_pos(fdt->pos);
-        // Block maps directly to a sector
-        _fs_read_sector(fdt->cur_block, fdt->buffer);
-    }
-
-    // Read up to the end of the current block or the filesize
-    int filesize = fs_filesize(fdt->inode);
-    if (fdt->pos + len > filesize) {
-        len = filesize - fdt->pos;
-    }
-    if (len <= 0) {
-        // EOF
-        return 0;
-    }
-    int offset = fs_offset_from_pos(fdt->pos);
-    int end = offset + len;
-    if (end > BYTES_PER_SECTOR) {
-        len = BYTES_PER_SECTOR - offset;
-    }
-
-    // Advance the current position
-    fdt->pos += len;
-
-    bcopy(buf, fdt->buffer + offset, len);
-
-    return len;
-}
-
-int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
-    return tty_read(len, buf);
-}
-
-int io_ptr_read(int fd, unsigned char * buf, unsigned int len) {
-    return ptr_read(len, buf);
-}
-
 int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
     if (fdt->mode != 'w' && fdt->mode != 'a') {
-        return -1;
+        return ERR_WRONG_FILE_MODE;
     }
     
     int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->fwrite;
@@ -239,75 +169,10 @@ int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
     return fn(fd, buf, len);
 }
 
-int io_file_write(int fd, unsigned char * buf, unsigned int len) {
-    fd_t * fdt = proc_fd(fd);
-
-    if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
-        // Flush the old block if valid
-        if (fdt->cur_block >= 0) {
-            fs_write_block(fdt->inode, fdt->cur_block, fdt->buffer);
-        }
-        // Load a new block if needed
-        fdt->cur_block = fs_block_from_pos(fdt->pos);
-        fs_read_block(fdt->inode, fdt->cur_block, fdt->buffer);
-    }
-
-    // Read up to the end of the current block
-    int offset = fs_offset_from_pos(fdt->pos);
-    int end = offset + len;
-    if (end > BYTES_PER_SECTOR) {
-        len = BYTES_PER_SECTOR - offset;
-    }
-
-    // Advance the current position
-    fdt->pos += len;
-    if (fdt->pos > fdt->max_pos) {
-      fdt->max_pos = fdt-> pos;
-    }
-    bcopy(fdt->buffer + offset, buf, len);
-
-    return len;
-}
-
-int io_hd_write(int fd, unsigned char * buf, unsigned int len) {
-    fd_t * fdt = proc_fd(fd);
-
-    if (fdt->cur_block != fs_block_from_pos(fdt->pos)) {
-        // Flush the old block if valid
-        if (fdt->cur_block >= 0) {
-            _fs_write_sector(fdt->cur_block, fdt->buffer);
-        }
-        // Load a new block if needed
-        fdt->cur_block = fs_block_from_pos(fdt->pos);
-        // Block maps directly to sector
-        _fs_read_sector(fdt->cur_block, fdt->buffer);
-    }
-
-    // Read up to the end of the current block
-    int offset = fs_offset_from_pos(fdt->pos);
-    int end = offset + len;
-    if (end > BYTES_PER_SECTOR) {
-        len = BYTES_PER_SECTOR - offset;
-    }
-
-    // Advance the current position
-    fdt->pos += len;
-    if (fdt->pos > fdt->max_pos) {
-      fdt->max_pos = fdt-> pos;
-    }
-    bcopy(fdt->buffer + offset, buf, len);
-
-    return len;
-}
-
-int io_tty_write(int fd, unsigned char * buf, unsigned int len) {
-    return tty_write(len, buf);
-}
-
 int io_fflush(int fd) {
     fd_t * fdt = proc_fd(fd);
     if (fdt->mode != 'w' && fdt->mode != 'a') {
-        return ERR_NOT_SUPPORTED;
+        return ERR_WRONG_FILE_MODE;
     }
     
     int (*fn)(int) = fdt->vfile->fflush;
@@ -317,44 +182,10 @@ int io_fflush(int fd) {
     return fn(fd);
 }
 
-int io_file_flush(int fd) {
-    fd_t * fdt = proc_fd(fd);
-
-    // Flush the current block if valid    
-    if (fdt->cur_block >= 0) {
-        if (fdt->max_pos / BYTES_PER_SECTOR == fdt->cur_block) {
-            // This is the last block, only write as many bytes as we have.
-            fs_write(fdt->inode, fdt->buffer, fdt->max_pos % BYTES_PER_SECTOR, fs_pos_from_block(fdt->cur_block));
-        } else {
-            // Flush the whole block
-            fs_write_block(fdt->inode, fdt->cur_block, fdt->buffer);
-        }
-    }
-    
-    return 0;
-}
-
-int io_hd_flush(int fd) {
-    fd_t * fdt = proc_fd(fd);
-
-    // Flush the current block if valid
-    if (fdt->cur_block >= 0) {
-        // Flush the whole block (sector)
-        _fs_write_sector(fdt->cur_block, fdt->buffer);
-    }
-
-    return 0;
-}
-
-int io_tty_flush(int fd) {
-    tty_flush();
-    return 0;
-}
-
 int io_fstat(int fd, stat_t * stat) {
     fd_t * fdt = proc_fd(fd);
     if (fdt == 0) {
-        return -1;
+        return ERR_WRONG_FILE_MODE;
     }
     return fs_stat(fdt->inode, stat);
 };

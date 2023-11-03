@@ -15,5 +15,6 @@ int proc_exec(int argc, char ** argv);
 int proc_switch();
 int proc_chdir(char * path);
 int proc_getcwd(char * path, int len);
+int proc_block();
 
 #endif

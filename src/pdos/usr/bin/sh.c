@@ -2,6 +2,7 @@
 #include <sys.h>
 
 int main() {
+
     char path[32];
     char buf[64];
     char cmd[256];

@@ -38,7 +38,7 @@ AOUT2LDA=aout2lda.py
 
 all: boot_rk.bin bootstrap.bin pdos.bin pdos.dasm
 
-pdos.aout: crt0.s isr.s xmem.s ctx.s traps.s tty.o stdlib.o stdio.o boot.o cmd.o load.o vm.o rk.o fs.o ptr.o io.o kmalloc.o bitvec.o proc.o
+pdos.aout: crt0.s isr.s xmem.s ctx.s traps.s tty.o stdlib.o stdio.o boot.o cmd.o load.o vm.o rk.o fs.o ptr.o io.o io_file.o io_ptr.o io_tty.o io_hd.o io_pipe.o kmalloc.o bitvec.o proc.o
 
 bootstrap.aout: crtboot.s bootstrap.o rk.o
 	$(GCC) $(GCCOPTS) -Ttext 0x200 -e _start -g -o $@ $^

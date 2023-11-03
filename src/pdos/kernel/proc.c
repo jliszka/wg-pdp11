@@ -17,6 +17,7 @@
 #define STATE_RUNNABLE 1
 #define STATE_WAIT 2
 #define STATE_EXITED 3
+#define STATE_IO_BLOCKED 4
 
 extern int userexec(unsigned int sp);
 extern int kret(unsigned int ksp, unsigned int kernel_stack_page, unsigned int * kspp);
@@ -49,7 +50,7 @@ void proc_init() {
 
 int proc_fd_alloc(fd_t ** fdt_out) {
     if (cur_pid < 0) {
-        return 0;
+        return -1;
     }
 
     // Find a free file descriptor table entry
@@ -87,10 +88,13 @@ int proc_fd_alloc(fd_t ** fdt_out) {
 }
 
 void proc_fd_free(int fd, int pid) {
-    if (pid == -1) pid = cur_pid;
+    if (pid == -1) {
+        pid = cur_pid;
+    }
     fd_t * fdt = ptable[pid].fds[fd];
     fdt->refcount--;
     if (fdt->refcount == 0) {
+        fdt->mode = 0;
         if (fdt->buffer != 0) {
             kfree(fdt->buffer);
             fdt->buffer = 0;
@@ -266,6 +270,9 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     for (int i = 0; i < MAX_PROC_FDS; i++) {
         if (ppt->fds[i] != 0) {
             ppt->fds[i]->refcount++;
+            if (ppt->fds[i]->pipe_fdt != 0) {
+                ppt->fds[i]->pipe_fdt->refcount++;
+            }
             pt->fds[i] = ppt->fds[i];
         }
     }
@@ -289,7 +296,7 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     dst_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
     vm_map_kernel_page(KERNEL_MAPPING_PAGE, pt->kernel_stack_page, VM_RW);
 
-    vm_base = vm_page_base_address(6);
+    vm_base = vm_page_base_address(KERNEL_STACK_PAGE);
     bcopy(
           (unsigned char *)(ksp - vm_base + dst_base_address),
           (unsigned char *)ksp,
@@ -335,6 +342,16 @@ int proc_switch() {
     }
 
     if (new_pid == MAX_PROCS) {
+        // If none found, see if any of the IO blocked procs are ready to wake up
+        for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
+            if (ptable[new_pid].state == STATE_IO_BLOCKED) {
+                ptable[new_pid].state = STATE_RUNNABLE;
+                break;
+            }
+        }
+    }
+
+    if (new_pid == MAX_PROCS) {
         // No procs to run. This shouldn't happen, but exit
         // to the root shell.
         // TODO: asm("wait");
@@ -347,6 +364,13 @@ int proc_switch() {
     vm_user_init(new_pt->code_page, new_pt->stack_page);
     kret(new_pt->ksp, new_pt->kernel_stack_page, &(pt->ksp));
     return 0;
+}
+
+
+int proc_block() {
+    pcb_t * pt = &ptable[cur_pid];
+    pt->state = STATE_IO_BLOCKED;
+    return proc_switch();
 }
 
 int proc_wait(int pid) {

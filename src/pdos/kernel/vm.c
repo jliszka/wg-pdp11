@@ -53,23 +53,18 @@ void vm_init() {
         free_pages[i] = i < 8 ? 1 : 0;
     }
 
-    volatile int * kernel_par = (int *)KERNEL_PAR;
-    volatile int * kernel_pdr = (int *)KERNEL_PDR;
-
     *((volatile unsigned int *)MMR0) &= ~VM_ENABLE;
 
     // Code
     vm_map_kernel_page(0, 0, PDR_READ_ONLY);
     vm_map_kernel_page(1, 1, PDR_READ_ONLY);
+    vm_map_kernel_page(2, 2, PDR_READ_ONLY);
 
     // Heap
-    vm_map_kernel_page(2, 2, PDR_READ_WRITE);
+    vm_map_kernel_page(3, 3, PDR_READ_WRITE);
 
     // reserved for mapping between user processes
-    vm_map_kernel_page(3, 0, PDR_NON_RESIDENT);
     vm_map_kernel_page(4, 0, PDR_NON_RESIDENT);
-
-    // reserved for stack
     vm_map_kernel_page(5, 0, PDR_NON_RESIDENT);
 
     // Stack
@@ -85,7 +80,7 @@ void vm_init() {
 
 unsigned int vm_get_kernel_stack_page() {
     volatile int * kernel_par = (int *)KERNEL_PAR;
-    return vm_block_page_number(kernel_par[6]);
+    return vm_block_page_number(kernel_par[KERNEL_STACK_PAGE]);
 }
 
 void vm_map_kernel_page(int virtual_page, unsigned int physical_page, int flags) {

@@ -43,7 +43,7 @@ readbuf:
 writebuf:
     mov 2(sp), r2       # kernel-space address to copy from
     mov 4(sp), r1       # user-space address to copy to
-    mov 6(sp), r0       # number of bytes to read
+    mov 6(sp), r0       # number of bytes to copy
 
     bit r1, $1          # check if the address is even
     beq 1$

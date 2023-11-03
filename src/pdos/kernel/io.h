@@ -10,13 +10,14 @@ typedef struct {
     int (*fflush)(int);
 } vfile_t;
 
-typedef struct {
+typedef struct fd_t {
     int inode;
     int cur_block;
     int pos;
     int max_pos;
     char mode;
     char refcount;
+    struct fd_t * pipe_fdt;
     vfile_t * vfile;
     unsigned char * buffer;
 } fd_t;

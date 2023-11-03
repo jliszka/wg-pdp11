@@ -336,6 +336,7 @@ int fs_resolve_path(char * path, path_info_t * path_info) {
     // Find the file. It's ok if it doesn't exist.
     dirent_t * dir = _fs_load_dir(dir_inode);
     int ret = _fs_find_inode(dir_inode, dir, path_info->filename, &path_info->index);
+
     if (ret < 0) {
         path_info->inode = 0;
     } else {

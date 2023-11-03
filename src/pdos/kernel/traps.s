@@ -60,6 +60,7 @@ ttable:
     .word trap.wait     # 16
     .word trap.chdir    # 17
     .word trap.getcwd   # 18
+    .word trap.pipe     # 19
 
 
 # r5 points to user-space stack:
@@ -211,6 +212,10 @@ trap.fread:
     mfpi 4(r5)          # file descriptor
     jsr pc, _io_fread   # return value (r0): how many bytes read
     add $6, sp
+
+    tst r0              # error from io_fread, return
+    blt 3$
+
     pop r5
 
     push r0             # save original value of r0
@@ -407,6 +412,7 @@ trap.mkfs:
 
 # r5 points to user-space stack:
 #     - child pid
+#     - return address for call to syscall stub
 # r5 -> old r5
 trap.wait:
     mfpi 4(r5)
@@ -417,6 +423,7 @@ trap.wait:
 
 # r5 points to user-space stack:
 #     - path string
+#     - return address for call to syscall stub
 # r5 -> old r5
 trap.chdir:
     mfpi 4(r5)          # target dir name
@@ -433,6 +440,7 @@ trap.chdir:
 # r5 points to user-space stack:
 #     - buffer size
 #     - destination buf
+#     - return address for call to syscall stub
 # r5 -> old r5
 trap.getcwd:
     mfpi 6(r5)          # buffer size
@@ -453,3 +461,29 @@ trap.getcwd:
     pop r0
     jmp ret
 
+
+# r5 points to user-space stack:
+#     - read fd dest ptr
+#     - write fd dest ptr
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.pipe:
+    sub $4, sp   # clear some space to store out params
+    mov sp, r1
+    push r1      # read fd on top of stack
+    add $2, r1
+    push r1      # write fd
+
+    jsr pc, _io_pipe
+    add $4, sp
+
+    mfpi 6(r5)  # read fd
+    pop r1
+
+    mfpi 4(r5)  # write fd
+    pop r2
+
+    mtpi (r1)
+    mtpi (r2)
+
+    jmp ret

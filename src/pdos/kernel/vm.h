@@ -1,8 +1,10 @@
 #ifndef VM_H
 #define VM_H
 
-#define KERNEL_MAPPING_PAGE 3u
-#define KERNEL_MAPPING_PAGE2 4u
+#define KERNEL_HEAP_PAGE 3u
+#define KERNEL_MAPPING_PAGE 4u
+#define KERNEL_MAPPING_PAGE2 5u
+#define KERNEL_STACK_PAGE 6u
 
 #define VM_RO 077404
 #define VM_RW 077406

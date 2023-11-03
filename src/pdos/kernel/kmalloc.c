@@ -6,7 +6,7 @@
 
 #define MEM_BLOCKS 16
 #define BYTES_PER_BLOCK 512
-#define MEM_BASE vm_page_base_address(2)
+#define MEM_BASE vm_page_base_address(KERNEL_HEAP_PAGE)
 
 static char free_list[MEM_BLOCKS];
 

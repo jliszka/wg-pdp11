@@ -14,7 +14,7 @@ test:
 all: lib bin test
 
 install:
-	make -C bin tests && make -C test install
+	make -C bin install && make -C test install
 
 clean:
 	make -C lib clean && make -C bin clean && make -C test clean

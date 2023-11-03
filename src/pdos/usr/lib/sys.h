@@ -22,5 +22,6 @@ int mkfs();
 int wait(int pid);
 int chdir(const char * path);
 int getcwd(char * buf, unsigned int len);
+int pipe(int * writefd, int * readfd);
 
 #endif
