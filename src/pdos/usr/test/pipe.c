@@ -15,32 +15,32 @@ int main(int argc, char ** argv) {
     print("write fd=");
     println(itoa(10, wfd, buf));    
 
-    fwrite(wfd, "hi", 3);
-    fread(rfd, buf, 3);
+    write(wfd, "hi", 3);
+    read(rfd, buf, 3);
 
     print("Got: ");
     println(buf);
 
-    fwrite(wfd, "Hello, ", 7);
-    fwrite(wfd, "world!", 7);
-    fread(rfd, buf, 15);
+    write(wfd, "Hello, ", 7);
+    write(wfd, "world!", 7);
+    read(rfd, buf, 15);
     print("Got: ");
     println(buf);
     
     int pid = fork();
     if (pid == 0) {
-        fclose(rfd);
+        close(rfd);
 
         println("Child process!");
-        fwrite(wfd, "hello from child", 17); 
+        write(wfd, "hello from child", 17);
         return 3;
     } else {
-        fclose(wfd);
+        close(wfd);
 
         print("In parent! child pid=");
         println(itoa(10, pid, buf));
 
-        ret = fread(rfd, buf, 32);
+        ret = read(rfd, buf, 32);
         print("child: ");
         println(buf);
         println(itoa(10, ret, buf));

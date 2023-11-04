@@ -17,7 +17,7 @@ int main(int argc, char ** argv) {
 
     int fd = STDIN;
     if (argc == 2) {
-        fd = fopen(argv[1], 'r');
+        fd = open(argv[1], 'r');
         if (fd < 0) {
             return fd;
         }
@@ -26,7 +26,7 @@ int main(int argc, char ** argv) {
     char buf[256];
     buf[255] = 0;
     while (lines > 0) {
-        int ret = fread(fd, buf, 255);
+        int ret = read(fd, buf, 255);
         if (ret == 0) {
             break;
         }

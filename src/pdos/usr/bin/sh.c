@@ -12,7 +12,7 @@ int main() {
         getcwd(path, 32);
         print(path);
         print("$ ");
-        fflush(STDOUT);
+        fsync(STDOUT);
 
         input(256, cmd);
         int argc = strntok(cmd, ' ', argv, 16);

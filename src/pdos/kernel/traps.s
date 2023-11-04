@@ -45,12 +45,12 @@ ttable:
     .word trap.halt     # 1
     .word trap.fork     # 2
     .word trap.exec     # 3
-    .word trap.fopen    # 4
-    .word trap.fclose   # 5
-    .word trap.fseek    # 6
-    .word trap.fread    # 7
-    .word trap.fwrite   # 8
-    .word trap.fflush   # 9
+    .word trap.open     # 4
+    .word trap.close    # 5
+    .word trap.lseek    # 6
+    .word trap.read     # 7
+    .word trap.write    # 8
+    .word trap.fsync    # 9
     .word trap.link     # 10
     .word trap.unlink   # 11
     .word trap.mkdir    # 12
@@ -153,7 +153,7 @@ trap.exec:
 #     - path (char *)
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fopen:
+trap.open:
     mfpi 4(r5)          # path string
     push $buf
     jsr pc, readbuf
@@ -161,7 +161,7 @@ trap.fopen:
 
     mfpi 6(r5)          # mode
     push $buf
-    jsr pc, _io_fopen
+    jsr pc, _io_open
     add $4, sp
 
     jmp ret
@@ -171,9 +171,9 @@ trap.fopen:
 #     - fd
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fclose:
+trap.close:
     mfpi 4(r5)
-    jsr pc, _io_fclose
+    jsr pc, _io_close
     add $2, sp
     jmp ret
 
@@ -182,10 +182,10 @@ trap.fclose:
 #     - fd
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fseek:
+trap.lseek:
     mfpi 6(r5)
     mfpi 4(r5)
-    jsr pc, _io_fseek
+    jsr pc, _io_lseek
     add $4, sp
     jmp ret
 
@@ -195,7 +195,7 @@ trap.fseek:
 #     - fd
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fread:
+trap.read:
     push r5
     mfpi 8(r5)          # number of bytes to read
     pop r0
@@ -210,7 +210,7 @@ trap.fread:
     push r0             # number of bytes to read
     push $buf           # destination buffer
     mfpi 4(r5)          # file descriptor
-    jsr pc, _io_fread   # return value (r0): how many bytes read
+    jsr pc, _io_read   # return value (r0): how many bytes read
     add $6, sp
 
     tst r0              # error from io_fread, return
@@ -239,7 +239,7 @@ trap.fread:
 #     - fd
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fwrite:
+trap.write:
     mfpi 8(r5)          # number of bytes to write
     pop r0
     mfpi 6(r5)          # source buffer
@@ -280,7 +280,7 @@ trap.fwrite:
                         # number of bytes to write is already on the top of the stack
     push $buf           # destination buffer
     mfpi 4(r5)          # file descriptor
-    jsr pc, _io_fwrite
+    jsr pc, _io_write
     add $6, sp
 5$:
     jmp ret
@@ -289,9 +289,9 @@ trap.fwrite:
 #     - fd
 #     - return address for call to syscall stub
 # r5 -> old r5
-trap.fflush:
+trap.fsync:
     mfpi 4(r5)
-    jsr pc, _io_fflush
+    jsr pc, _io_fsync
     add $2, sp
     jmp ret
 

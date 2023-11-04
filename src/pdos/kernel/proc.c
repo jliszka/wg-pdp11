@@ -153,13 +153,13 @@ int proc_create() {
 }
 
 int _proc_load(char * path, int code_page) {
-    int fd = io_fopen(path, 'r');
+    int fd = io_open(path, 'r');
     if (fd == ERR_FILE_NOT_FOUND && path[0] != '/') {
         // TODO: resolve path in the shell
         char buf[64];
         strncpy(buf, "/bin/", 6);
         strncpy(buf+5, path, 64-5-1);
-        fd = io_fopen(buf, 'r');
+        fd = io_open(buf, 'r');
     }
     if (fd < 0) {
         println("Command not found");
@@ -168,7 +168,7 @@ int _proc_load(char * path, int code_page) {
 
     int ret = load_file(fd, code_page);
 
-    io_fclose(fd);
+    io_close(fd);
 
     return ret;
 }
@@ -211,8 +211,8 @@ int proc_exec(int argc, char *argv[]) {
 
     // Initialize stdin and stdout
     _proc_free_fds(pt, cur_pid);
-    io_fopen("/dev/tty", 'r');
-    io_fopen("/dev/tty", 'w');    
+    io_open("/dev/tty", 'r');
+    io_open("/dev/tty", 'w');    
 
     // Set up user page tables
     vm_user_init(pt->code_page, pt->stack_page);

@@ -3,7 +3,7 @@
 
 int main(int argc, char ** argv) {
 
-    int ptr = fopen("/dev/ptr", 'r');
+    int ptr = open("/dev/ptr", 'r');
     if (ptr < 0) {
         println("Unable to open PTR device");
         return ptr;
@@ -15,7 +15,7 @@ int main(int argc, char ** argv) {
         println("...");
         halt();
         
-        int fd = fopen(argv[i], 'w');
+        int fd = open(argv[i], 'w');
         if (fd < 0) {
             print("Unable to write ");
             println(argv[i]);
@@ -23,21 +23,21 @@ int main(int argc, char ** argv) {
         }
 
         unsigned char buf[64];
-        int in = fread(ptr, buf, 64);
+        int in = read(ptr, buf, 64);
         int out = 0;
         int total = 0;
         while (in > 0) {
-            out = fwrite(fd, buf, in);
+            out = write(fd, buf, in);
             if (out < 0) return out;
             while (out < in) {
-                int ret = fwrite(fd, buf+out, in-out);
+                int ret = write(fd, buf+out, in-out);
                 if (ret < 0) return ret;
                 out += ret;
             }
             total += out;
-            in = fread(ptr, buf, 64);
+            in = read(ptr, buf, 64);
         }
-        fclose(fd);
+        close(fd);
         if (in < 0) {
             return in;
         }
@@ -46,7 +46,7 @@ int main(int argc, char ** argv) {
         println(" bytes copied.");
     }
 
-    fclose(ptr);
+    close(ptr);
 
     return 0;
 }

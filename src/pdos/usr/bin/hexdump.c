@@ -26,7 +26,7 @@ int main(int argc, char ** argv) {
     }
         
     for (int i = idx; i < argc; i++) {
-        int fd = fopen(argv[i], 'r');
+        int fd = open(argv[i], 'r');
         if (fd < 0) {
             println("Failed to open source");
             return fd;
@@ -35,7 +35,7 @@ int main(int argc, char ** argv) {
         unsigned char inbuf[8];
         unsigned char outbuf[16];
         int pos = 0;
-        int n = fread(fd, inbuf, 8);
+        int n = read(fd, inbuf, 8);
         while (n > 0) {
             print(itoa(16, pos, outbuf));
             print(" ");
@@ -44,10 +44,10 @@ int main(int argc, char ** argv) {
                 print(" ");
             }
             pos += n;
-            n = fread(fd, inbuf, 64);
+            n = read(fd, inbuf, 64);
             println("");
         }
-        fclose(fd);
+        close(fd);
     }
 
     return 0;

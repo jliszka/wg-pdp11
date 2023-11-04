@@ -4,10 +4,10 @@
 #include "fs_defs.h"
 
 typedef struct {
-    int (*fseek)(int, unsigned int);
-    int (*fread)(int, unsigned char *, unsigned int);
-    int (*fwrite)(int, unsigned char *, unsigned int);
-    int (*fflush)(int);
+    int (*lseek)(int, unsigned int);
+    int (*read)(int, unsigned char *, unsigned int);
+    int (*write)(int, unsigned char *, unsigned int);
+    int (*fsync)(int);
 } vfile_t;
 
 typedef struct fd_t {
@@ -23,12 +23,12 @@ typedef struct fd_t {
 } fd_t;
 
 int io_reset();
-int io_fopen(char * path, char mode);
-int io_fclose(int fd);
-int io_fseek(int fd, unsigned int pos);
-int io_fread(int fd, unsigned char * buf, unsigned int len);
-int io_fwrite(int fd, unsigned char * buf, unsigned int len);
-int io_fflush(int fd);
-int io_fstat(int fd, stat_t * stat);
+int io_open(char * path, char mode);
+int io_close(int fd);
+int io_lseek(int fd, unsigned int pos);
+int io_read(int fd, unsigned char * buf, unsigned int len);
+int io_write(int fd, unsigned char * buf, unsigned int len);
+int io_fsync(int fd);
+int io_stat(int fd, stat_t * stat);
 
 #endif

@@ -2,15 +2,15 @@
 #include "sys.h"
 
 int opendir(char * dirname) {
-    return fopen(dirname, 'd');
+    return open(dirname, 'd');
 }
 
 int readdir(int fd, dirent_t * dirent) {
-    return fread(fd, (unsigned char *)dirent, sizeof(dirent_t));
+    return read(fd, (unsigned char *)dirent, sizeof(dirent_t));
 }
 
 int closedir(int fd) {
-    return fclose(fd);
+    return close(fd);
 }
 
 int is_dir(stat_t * file_stat) {

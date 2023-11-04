@@ -13,16 +13,16 @@ void fprint(int fd, char * str) {
     int len = strlen(str);
 	int written = 0;
 	do {
-		written += fwrite(fd, str + written, len - written);
+		written += write(fd, str + written, len - written);
 	} while (written < len);
 }
 
 void fprintln(int fd, char * str) {
     fprint(fd, str);
     fprint(fd, "\r\n");
-    fflush(fd);
+    fsync(fd);
 }
 
 int input(int len, char * buf) {
-	return fread(STDIN, buf, len);
+	return read(STDIN, buf, len);
 }

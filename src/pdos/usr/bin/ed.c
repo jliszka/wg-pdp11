@@ -42,7 +42,7 @@ int main(int argc, char ** argv) {
     char * parts[8];
 
     print("*");
-    fflush(STDOUT);
+    fsync(STDOUT);
     int len = input(64, buf);
     int nparts = strntok(buf, ' ', parts, 8);
 
@@ -56,7 +56,7 @@ int main(int argc, char ** argv) {
         }
 
         print("*");
-        fflush(STDOUT);
+        fsync(STDOUT);
         len = input(64, buf);
         nparts = strntok(buf, ' ', parts, 8);
     }
@@ -287,7 +287,7 @@ int cmd_write(char * file) {
         println("Could not overwrite file");
         return ret;
     }
-    int fd = fopen(file, 'w');
+    int fd = open(file, 'w');
     if (fd < 0) {
         println("Error writing file");
         return fd;
@@ -295,7 +295,7 @@ int cmd_write(char * file) {
     for (line_t * cur = buf_head; cur != 0; cur = cur->next) {
         fprintln(fd, cur->line);
     }
-    fclose(fd);
+    close(fd);
     return line_count;
 }
 
@@ -324,7 +324,7 @@ int cmd_append() {
 
 int cmd_read(char * file) {
     filename = file;
-    int fd = fopen(file, 'r');
+    int fd = open(file, 'r');
     if (fd < 0) {
         println("Error reading file");
         return fd;
@@ -337,7 +337,7 @@ int cmd_read(char * file) {
     unsigned char buf[64];
     int pos = 0;
     int len = 0;
-    int in = fread(fd, buf, 64);
+    int in = read(fd, buf, 64);
     while (in > 0) {
         pos += in;
         int i;
@@ -369,12 +369,12 @@ int cmd_read(char * file) {
 
         if (j < in) {
             pos = pos - in + j;
-            fseek(fd, pos);
+            lseek(fd, pos);
         }
         
-        in = fread(fd, buf, 64);
+        in = read(fd, buf, 64);
     }
-    fclose(fd);
+    close(fd);
     
     if (in < 0) {
         return in;

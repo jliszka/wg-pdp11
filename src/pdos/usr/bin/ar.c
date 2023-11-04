@@ -32,16 +32,16 @@ int main(int argc, char ** argv) {
     }
 
     if (target != 0) {
-        int tgt = fopen(target, 'r');
+        int tgt = open(target, 'r');
         if (tgt >= 0) {
             println("Target is not a directory");
             return -1;
         }
-        tgt = fopen(target, 'd');
+        tgt = open(target, 'd');
         if (tgt < 0) {
             mkdir(target);
         } else {
-            fclose(tgt);
+            close(tgt);
         }
     }
 
@@ -55,21 +55,21 @@ int main(int argc, char ** argv) {
         halt();
     }
 
-    int fd = fopen(argv[1], 'r');
+    int fd = open(argv[1], 'r');
     if (fd < 0) {
         println("Failed to open source");
         return fd;
     }
 
     unsigned char buf[64];
-    int pos = fread(fd, buf, 8);
+    int pos = read(fd, buf, 8);
     if (strncmp(buf, MAGIC, 8) != 0) {
         println("This is not an archive");
         return -1;
     }
 
     archive_header_t header;    
-    while (fread(fd, (unsigned char *)&header, sizeof(archive_header_t)) > 0) {
+    while (read(fd, (unsigned char *)&header, sizeof(archive_header_t)) > 0) {
 
         // Replace trailing spaces in the file name with \0
         for (int i = 15; i >= 0 && header.filename[i] == ' '; i--) {
@@ -91,7 +91,7 @@ int main(int argc, char ** argv) {
 
         unlink(buf);
 
-        int dst = fopen(buf, 'w');
+        int dst = open(buf, 'w');
         if (dst < 0) {
             print("Failed to open dst: ");
             println(buf);
@@ -99,25 +99,25 @@ int main(int argc, char ** argv) {
         }
 
         int size = atoi(header.filesize, 10);
-        int read = 0;
-        while (read < size) {
-            int len = size - read;
+        int bytes_read = 0;
+        while (bytes_read < size) {
+            int len = size - bytes_read;
             if (len > sizeof(buf)) {
                 len = sizeof(buf);
             }
-            len = fread(fd, buf, len);
+            len = read(fd, buf, len);
             if (len <= 0) {
                 print("Failed reading from dst: ");
                 println(header.filename);
                 return -1;
             }
-            read += len;
-            fwrite(dst, buf, len);
+            bytes_read += len;
+            write(dst, buf, len);
         }
-        fclose(dst);
+        close(dst);
 
         print("Wrote ");
-        print(itoa(10, read, buf));
+        print(itoa(10, bytes_read, buf));
         print("/");
         print(itoa(10, size, buf));
         println(" bytes");
@@ -125,10 +125,10 @@ int main(int argc, char ** argv) {
         // Consume the padding between files that ensures each file
         // starts at an even offset
         if (size % 2 == 1) {
-            fread(fd, buf, 1);
+            read(fd, buf, 1);
         }
     }
-    fclose(fd);
+    close(fd);
 
     return 0;
 }

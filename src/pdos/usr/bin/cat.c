@@ -3,7 +3,7 @@
 
 int main(int argc, char ** argv) {
     for (int i = 1; i < argc; i++) {
-        int fd = fopen(argv[i], 'r');
+        int fd = open(argv[i], 'r');
         if (fd < 0) {
             print("Failed to open ");
             println(argv[i]);
@@ -11,16 +11,16 @@ int main(int argc, char ** argv) {
         }
 
         unsigned char buf[64];
-        int in = fread(fd, buf, 64);
+        int in = read(fd, buf, 64);
         while (in > 0) {
-            fwrite(STDOUT, buf, in);
-            in = fread(fd, buf, 64);
+            write(STDOUT, buf, in);
+            in = read(fd, buf, 64);
         }
-        fflush(STDOUT);
+        fsync(STDOUT);
         if (in < 0) {
             return in;
         }
-        fclose(fd);
+        close(fd);
     }
 
     return 0;

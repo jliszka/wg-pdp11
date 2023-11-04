@@ -62,7 +62,7 @@ int io_pipe(int * writefd, int * readfd) {
     return 0;
 }
 
-int io_fopen(char * path, char mode) {
+int io_open(char * path, char mode) {
     path_info_t path_info;
     int ret = fs_resolve_path(path, &path_info);
     if (ret < 0) {
@@ -125,29 +125,29 @@ int io_fopen(char * path, char mode) {
     return fd;
 }
 
-int io_fclose(int fd) {
-    io_fflush(fd);
+int io_close(int fd) {
+    io_fsync(fd);
     proc_fd_free(fd, -1);
 
     return 0;
 }
 
-int io_fseek(int fd, unsigned int pos) {
+int io_lseek(int fd, unsigned int pos) {
     fd_t * fdt = proc_fd(fd);
-    int (*fn)(int, unsigned int) = fdt->vfile->fseek;
+    int (*fn)(int, unsigned int) = fdt->vfile->lseek;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
     return fn(fd, pos);
 }
 
-int io_fread(int fd, unsigned char * buf, unsigned int len) {
+int io_read(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
     if (fdt->mode != 'r' && fdt->mode != 'd') {
         return ERR_WRONG_FILE_MODE;
     }
     
-    int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->fread;
+    int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->read;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
@@ -155,13 +155,13 @@ int io_fread(int fd, unsigned char * buf, unsigned int len) {
     return fn(fd, buf, len);
 }
 
-int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
+int io_write(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
     if (fdt->mode != 'w' && fdt->mode != 'a') {
         return ERR_WRONG_FILE_MODE;
     }
     
-    int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->fwrite;
+    int (*fn)(int, unsigned char *, unsigned int) = fdt->vfile->write;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
@@ -169,20 +169,20 @@ int io_fwrite(int fd, unsigned char * buf, unsigned int len) {
     return fn(fd, buf, len);
 }
 
-int io_fflush(int fd) {
+int io_fsync(int fd) {
     fd_t * fdt = proc_fd(fd);
     if (fdt->mode != 'w' && fdt->mode != 'a') {
         return ERR_WRONG_FILE_MODE;
     }
     
-    int (*fn)(int) = fdt->vfile->fflush;
+    int (*fn)(int) = fdt->vfile->fsync;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
     }
     return fn(fd);
 }
 
-int io_fstat(int fd, stat_t * stat) {
+int io_stat(int fd, stat_t * stat) {
     fd_t * fdt = proc_fd(fd);
     if (fdt == 0) {
         return ERR_WRONG_FILE_MODE;

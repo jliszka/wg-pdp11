@@ -6,20 +6,20 @@ int main(int argc, char ** argv) {
   if (argc > 1) {
     filename = argv[1];
   }
-  int fd = fopen(filename, 'w');
+  int fd = open(filename, 'w');
   char * text = "Some text\r\n";
   if (argc > 2) {
       text = argv[2];
   }
-  fwrite(fd, text, strlen(text)+1);
-  fclose(fd);
+  write(fd, text, strlen(text)+1);
+  close(fd);
 
   char buf[64];
-  int fd2 = fopen(filename, 'r');
-  fseek(fd2, 4);
-  fread(fd2, buf, 64);
+  int fd2 = open(filename, 'r');
+  lseek(fd2, 4);
+  read(fd2, buf, 64);
   println(buf);
-  fclose(fd2);
+  close(fd2);
   
   exit(2);
 }

@@ -22,7 +22,7 @@ int load_file(int fd, int code_page) {
         // header[2] = start address to load the program to
 
         int header[3];
-        int header_bytes = io_fread(fd, (unsigned char *)header, 6);
+        int header_bytes = io_read(fd, (unsigned char *)header, 6);
         if (header_bytes < 0) {
             println("Unable to read header");
             ret = header_bytes;
@@ -63,7 +63,7 @@ int load_file(int fd, int code_page) {
         int bytes_read = 0;
         unsigned char * dst = (unsigned char *)(address - start_address + base_address);
         do {
-            int len = io_fread(fd, dst + pos - segment_base, byte_count - bytes_read);
+            int len = io_read(fd, dst + pos - segment_base, byte_count - bytes_read);
             if (len < 0) {
                 println("Error reading file");
                 return len;
@@ -75,7 +75,7 @@ int load_file(int fd, int code_page) {
         // 3. TODO: validate the checksum
 
         unsigned char checksum;
-        io_fread(fd, &checksum, 1);
+        io_read(fd, &checksum, 1);
         pos++;
     }
 
