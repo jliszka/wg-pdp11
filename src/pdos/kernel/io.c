@@ -24,44 +24,6 @@ static vfile_t vfile_devs[VFILE_NUM_DEVICES] = {
 int io_reset() {
 }
 
-int io_pipe(int * writefd, int * readfd) {
-    fd_t * w_fdt;
-    int w_fd = proc_fd_alloc(&w_fdt);
-    if (w_fd < 0) {
-        return w_fd;
-    }
-    fd_t * r_fdt;
-    int r_fd = proc_fd_alloc(&r_fdt);
-    if (r_fd < 0) {
-        proc_fd_free(w_fd, -1);
-        return r_fd;
-    }
-
-    w_fdt->inode = -1;
-    w_fdt->cur_block = -1;
-    w_fdt->pos = 0;
-    w_fdt->max_pos = 0;
-    w_fdt->mode = 'w';
-    w_fdt->refcount = 2;
-    w_fdt->vfile = &vfile_pipe;
-    w_fdt->buffer = kmalloc();
-    w_fdt->pipe_fdt = r_fdt;
-
-    r_fdt->inode = -1;
-    r_fdt->cur_block = -1;
-    r_fdt->pos = 0;
-    r_fdt->max_pos = 0;
-    r_fdt->mode = 'r';
-    r_fdt->refcount = 2;
-    r_fdt->vfile = &vfile_pipe;
-    r_fdt->buffer = w_fdt->buffer;
-    r_fdt->pipe_fdt = w_fdt;
-
-    *writefd = w_fd;
-    *readfd = r_fd;
-    return 0;
-}
-
 int io_open(char * path, char mode) {
     path_info_t path_info;
     int ret = fs_resolve_path(path, &path_info);
@@ -134,6 +96,9 @@ int io_close(int fd) {
 
 int io_lseek(int fd, unsigned int pos) {
     fd_t * fdt = proc_fd(fd);
+    if (fdt == 0) {
+        return ERR_BAD_FD;
+    }
     int (*fn)(int, unsigned int) = fdt->vfile->lseek;
     if (fn == 0) {
         return ERR_NOT_SUPPORTED;
@@ -143,6 +108,9 @@ int io_lseek(int fd, unsigned int pos) {
 
 int io_read(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
+    if (fdt == 0) {
+        return ERR_BAD_FD;
+    }
     if (fdt->mode != 'r' && fdt->mode != 'd') {
         return ERR_WRONG_FILE_MODE;
     }
@@ -157,6 +125,9 @@ int io_read(int fd, unsigned char * buf, unsigned int len) {
 
 int io_write(int fd, unsigned char * buf, unsigned int len) {
     fd_t * fdt = proc_fd(fd);
+    if (fdt == 0) {
+        return ERR_BAD_FD;
+    }
     if (fdt->mode != 'w' && fdt->mode != 'a') {
         return ERR_WRONG_FILE_MODE;
     }
@@ -171,6 +142,9 @@ int io_write(int fd, unsigned char * buf, unsigned int len) {
 
 int io_fsync(int fd) {
     fd_t * fdt = proc_fd(fd);
+    if (fdt == 0) {
+        return ERR_BAD_FD;
+    }
     if (fdt->mode != 'w' && fdt->mode != 'a') {
         return ERR_WRONG_FILE_MODE;
     }
@@ -185,7 +159,67 @@ int io_fsync(int fd) {
 int io_stat(int fd, stat_t * stat) {
     fd_t * fdt = proc_fd(fd);
     if (fdt == 0) {
-        return ERR_WRONG_FILE_MODE;
+        return ERR_BAD_FD;
     }
     return fs_stat(fdt->inode, stat);
 };
+
+int io_pipe(int * writefd, int * readfd) {
+    fd_t * w_fdt;
+    int w_fd = proc_fd_alloc(&w_fdt);
+    if (w_fd < 0) {
+        return w_fd;
+    }
+    fd_t * r_fdt;
+    int r_fd = proc_fd_alloc(&r_fdt);
+    if (r_fd < 0) {
+        proc_fd_free(w_fd, -1);
+        return r_fd;
+    }
+
+    w_fdt->inode = -1;
+    w_fdt->cur_block = -1;
+    w_fdt->pos = 0;
+    w_fdt->max_pos = 0;
+    w_fdt->mode = 'w';
+    w_fdt->refcount = 2;
+    w_fdt->vfile = &vfile_pipe;
+    w_fdt->buffer = kmalloc();
+    w_fdt->pipe_fdt = r_fdt;
+
+    r_fdt->inode = -1;
+    r_fdt->cur_block = -1;
+    r_fdt->pos = 0;
+    r_fdt->max_pos = 0;
+    r_fdt->mode = 'r';
+    r_fdt->refcount = 2;
+    r_fdt->vfile = &vfile_pipe;
+    r_fdt->buffer = w_fdt->buffer;
+    r_fdt->pipe_fdt = w_fdt;
+
+    *writefd = w_fd;
+    *readfd = r_fd;
+    return 0;
+}
+
+int io_dup2(int oldfd, int newfd) {
+    fd_t * old_fdt = proc_fd(oldfd);
+    fd_t * new_fdt = proc_fd(newfd);
+
+    // Check that oldfd is valid
+    if (old_fdt == 0) {
+        return ERR_BAD_FD;
+    }
+
+    // Maybe they're already the same?
+    if (old_fdt == new_fdt) {
+        return 0;
+    }
+
+    // If newfd is open, close it
+    if (new_fdt != 0) {
+        io_close(newfd);
+    }
+
+    proc_fd_assign(old_fdt, newfd);
+}

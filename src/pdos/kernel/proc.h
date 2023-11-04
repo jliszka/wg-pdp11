@@ -6,6 +6,7 @@
 void proc_init();
 int proc_fd_alloc(fd_t ** fdt);
 void proc_fd_free(int fd, int pid);
+void proc_fd_assign(fd_t * fdt, int fd);
 fd_t * proc_fd(int fd);
 int proc_cwd();
 int proc_create();

@@ -61,6 +61,7 @@ ttable:
     .word trap.chdir    # 17
     .word trap.getcwd   # 18
     .word trap.pipe     # 19
+    .word trap.dup2     # 20
 
 
 # r5 points to user-space stack:
@@ -486,4 +487,16 @@ trap.pipe:
     mtpi (r1)
     mtpi (r2)
 
+    jmp ret
+
+# r5 points to user-space stack:
+#     - target fd
+#     - original fd
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.dup2:
+    mfpi 6(r5)
+    mfpi 4(r5)
+    jsr pc, _io_dup2
+    add $4, sp
     jmp ret

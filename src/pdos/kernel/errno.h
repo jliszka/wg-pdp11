@@ -12,5 +12,6 @@
 #define ERR_NO_FREE_BLOCK -9
 #define ERR_OUT_OF_PROCS -10
 #define ERR_WRONG_FILE_MODE -11
+#define ERR_BAD_FD -12
 
 #endif

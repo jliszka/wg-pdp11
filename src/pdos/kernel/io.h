@@ -30,5 +30,6 @@ int io_read(int fd, unsigned char * buf, unsigned int len);
 int io_write(int fd, unsigned char * buf, unsigned int len);
 int io_fsync(int fd);
 int io_stat(int fd, stat_t * stat);
+int io_dup2(int oldf, int newfd);
 
 #endif

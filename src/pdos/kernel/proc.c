@@ -92,6 +92,10 @@ void proc_fd_free(int fd, int pid) {
         pid = cur_pid;
     }
     fd_t * fdt = ptable[pid].fds[fd];
+    if (fdt == 0) {
+        // Already freed? Maybe error here.
+        return;
+    }
     fdt->refcount--;
     if (fdt->refcount == 0) {
         fdt->mode = 0;
@@ -101,6 +105,11 @@ void proc_fd_free(int fd, int pid) {
         }
     }
     ptable[pid].fds[fd] = 0;
+}
+
+void proc_fd_assign(fd_t * fdt, int fd) {
+    ptable[cur_pid].fds[fd] = fdt;
+    fdt->refcount++;
 }
 
 void _proc_free_fds(pcb_t * pt, int pid) {

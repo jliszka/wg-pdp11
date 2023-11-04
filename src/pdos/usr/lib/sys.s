@@ -43,3 +43,4 @@ syscall _wait, 16
 syscall _chdir, 17
 syscall _getcwd, 18
 syscall _pipe, 19
+syscall _dup2, 20

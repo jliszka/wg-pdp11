@@ -30,20 +30,23 @@ int main(int argc, char ** argv) {
     int pid = fork();
     if (pid == 0) {
         close(rfd);
+        dup2(wfd, STDOUT);
+        close(wfd);
 
-        println("Child process!");
-        write(wfd, "hello from child", 17);
+        println("hello from child!");
         return 3;
+
     } else {
         close(wfd);
+        dup2(rfd, STDIN);
+        close(rfd);
 
         print("In parent! child pid=");
         println(itoa(10, pid, buf));
 
-        ret = read(rfd, buf, 32);
+        ret = input(32, buf);
         print("child: ");
         println(buf);
-        println(itoa(10, ret, buf));
          
         int ret = wait(pid);
         print("Child exit code: ");
