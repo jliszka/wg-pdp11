@@ -10,22 +10,18 @@ int main(int argc, char ** argv) {
         return ret;
     }
 
-    print("read fd=");
-    println(itoa(10, rfd, buf));
-    print("write fd=");
-    println(itoa(10, wfd, buf));    
+    printf("read fd=%d\r\n", rfd);
+    printf("write fd=%d\r\n", wfd);
 
     write(wfd, "hi", 3);
     read(rfd, buf, 3);
 
-    print("Got: ");
-    println(buf);
+    printf("Got: %s\r\n", buf);
 
     write(wfd, "Hello, ", 7);
     write(wfd, "world!", 7);
     read(rfd, buf, 15);
-    print("Got: ");
-    println(buf);
+    printf("Got: %s\r\n", buf);
     
     int pid = fork();
     if (pid == 0) {
@@ -41,16 +37,13 @@ int main(int argc, char ** argv) {
         dup2(rfd, STDIN);
         close(rfd);
 
-        print("In parent! child pid=");
-        println(itoa(10, pid, buf));
+        printf("In parent! child pid=%d\r\n", pid);
 
         ret = input(32, buf);
-        print("child: ");
-        println(buf);
+        printf("child: %s\r\n", buf);
          
         int ret = wait(pid);
-        print("Child exit code: ");
-        println(itoa(10, ret, buf));
+        printf("Child exit code: %d\r\n", ret);
         return ret+1;
     }
 

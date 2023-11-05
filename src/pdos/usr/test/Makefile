@@ -43,7 +43,7 @@ lib:
 
 ##########################################################
 
-BINS=files.bin fork.bin hello.bin exec.bin pipe.bin
+BINS=files.bin fork.bin hello.bin exec.bin pipe.bin printf.bin
 
 tests.a: $(BINS)
 

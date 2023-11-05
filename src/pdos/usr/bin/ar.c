@@ -86,15 +86,13 @@ int main(int argc, char ** argv) {
         }
         strncpy(end, header.filename, 16);
 
-        print("Writing ");
-        println(buf);
+        printf("Writing %s\r\n", buf);
 
         unlink(buf);
 
         int dst = open(buf, 'w');
         if (dst < 0) {
-            print("Failed to open dst: ");
-            println(buf);
+            printf("Failed to open dst: %s\r\n", buf);
             return -1;
         }
 
@@ -107,8 +105,7 @@ int main(int argc, char ** argv) {
             }
             len = read(fd, buf, len);
             if (len <= 0) {
-                print("Failed reading from dst: ");
-                println(header.filename);
+                printf("Failed reading from dst: %s\r\n", header.filename);
                 return -1;
             }
             bytes_read += len;
@@ -116,11 +113,7 @@ int main(int argc, char ** argv) {
         }
         close(dst);
 
-        print("Wrote ");
-        print(itoa(10, bytes_read, buf));
-        print("/");
-        print(itoa(10, size, buf));
-        println(" bytes");
+        printf("Wrote %d/%d bytes\r\n", bytes_read, size);
 
         // Consume the padding between files that ensures each file
         // starts at an even offset

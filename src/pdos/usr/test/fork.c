@@ -2,18 +2,14 @@
 #include <sys.h>
 
 int main(int argc, char ** argv) {
-    char buf[16];
-
     int pid = fork();
     if (pid == 0) {
         println("Child process!");
         return 3;
     } else {
-        print("In parent! child pid=");
-        println(itoa(10, pid, buf));
+        printf("In parent! child pid=%d\r\n", pid);
         int ret = wait(pid);
-        print("Child exit code: ");
-        println(itoa(10, ret, buf));
+        printf("Child exit code: %d\r\n", ret);
         return ret+1;
     }
 

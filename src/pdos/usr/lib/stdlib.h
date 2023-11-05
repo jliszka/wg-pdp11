@@ -9,6 +9,8 @@ void print(char * buf);
 void println(char * buf);
 void fprint(int fd, char * buf);
 void fprintln(int fd, char * buf);
+void fprintf(int fd, const char * fmt, ...);
+void printf(const char * fmt, ...);
 int input(int len, char * buf);
 char * uitoa(int radix, int n, char * dst);
 char * itoa(int radix, int n, char * dst);

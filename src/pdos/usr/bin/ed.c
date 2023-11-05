@@ -52,7 +52,7 @@ int main(int argc, char ** argv) {
         int ret = _do_command(nparts, parts);
         
         if (ret != 0) {
-            println(itoa(10, ret, buf));
+            printf("%d\r\n", ret);
         }
 
         print("*");
@@ -272,8 +272,7 @@ int cmd_print(int start, int end, int line_numbers) {
         if (line > end) break;
         if (line >= start) {
             if (line_numbers) {
-                print(itoa(10, line, buf));
-                print(" ");
+                printf("%d ", line);
             }
             println(cur->line);
         }

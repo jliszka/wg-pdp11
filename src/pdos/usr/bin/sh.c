@@ -4,14 +4,12 @@
 int main() {
 
     char path[32];
-    char buf[64];
     char cmd[256];
     char * argv[16];
 
     while (1) {
         getcwd(path, 32);
-        print(path);
-        print("$ ");
+        printf("%s$ ", path);
         fsync(STDOUT);
 
         input(256, cmd);
@@ -23,18 +21,21 @@ int main() {
             continue;
         }
 
+        if (argc == 1 && strncmp(argv[0], "exit", 5) == 0) {
+            break;
+        }
+
         int pid = fork();
         if (pid == 0) {
             // child
             int ret = exec(argc, argv);
-            print("exec failed: ");
-            println(itoa(10, ret, buf));
+            printf("exec failed: %d\r\n", ret);
             return ret;
         } else {
             // parent
             int ret = wait(pid);
-            print(itoa(10, ret, buf));
-            print(") ");
+            printf("%d) ", ret);
         }
     }
+    return 0;
 }

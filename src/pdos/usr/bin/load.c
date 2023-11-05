@@ -10,15 +10,12 @@ int main(int argc, char ** argv) {
     }
     
     for (int i = 1; i < argc; i++) {
-        print("Attach ");
-        print(argv[i]);
-        println("...");
+        printf("Attach %s...\r\n", argv[i]);
         halt();
         
         int fd = open(argv[i], 'w');
         if (fd < 0) {
-            print("Unable to write ");
-            println(argv[i]);
+            printf("Unable to write %s\r\n", argv[i]);
             return fd;
         }
 
@@ -42,8 +39,7 @@ int main(int argc, char ** argv) {
             return in;
         }
 
-        print(itoa(10, total, buf));
-        println(" bytes copied.");
+        printf("%d bytes copied.\r\n", total);
     }
 
     close(ptr);
