@@ -24,5 +24,6 @@ int chdir(const char * path);
 int getcwd(char * buf, unsigned int len);
 int pipe(int * writefd, int * readfd);
 int dup2(int oldfd, int newfd);
+int rename(char * src, char * dst);
 
 #endif

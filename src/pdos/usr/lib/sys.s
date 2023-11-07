@@ -44,3 +44,4 @@ syscall _chdir, 17
 syscall _getcwd, 18
 syscall _pipe, 19
 syscall _dup2, 20
+syscall _rename, 21

@@ -30,6 +30,8 @@ static dirent_t dir[DIRENTS_PER_SECTOR];
 extern unsigned int pwd;
 
 void _fs_mkdev();
+int _fs_cleanup(int ret);
+void _fs_sync_dir(int inode, dirent_t * dir);
 
 int fs_init() {
     fs_mount();
@@ -76,9 +78,10 @@ int fs_mkfs() {
     root_dir[1].filename[0] = '.';
     root_dir[1].filename[1] = '.';
 
-    _fs_write_sector(ROOT_DIR_SECTOR, (unsigned char *)root_dir);
+    _fs_sync_dir(ROOT_DIR_INODE, root_dir);
 
     _fs_mkdev();
+    fs_mkdir("/bin");
 
     return ROOT_DIR_INODE;
 }
@@ -224,13 +227,35 @@ char * fs_build_path(int dir_inode, char * buf, int len) {
     return strncpy(tail, dir->filename, len-parent_len);
 }
 
+int _fs_cleanup(int ret) {
+    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
+    return ret;
+}
+
+void _fs_sync_dir(int inode, dirent_t * dir) {
+    _fs_write_sector(inode_table[inode].sector, (unsigned char *)dir);
+}
+
 int _fs_add_dirent(
     int parent_dir_inode,
-    dirent_t * parent_dir,
     char * filename,
-    unsigned char flags,
     int inode
 ) {
+    dirent_t * parent_dir = _fs_load_dir(parent_dir_inode);
+    if (parent_dir == 0) {
+        return ERR_FILE_NOT_FOUND;
+    }
+
+    int index;
+    int existing_inode = _fs_find_inode(
+                                        parent_dir_inode,
+                                        parent_dir,
+                                        filename,
+                                        &index);
+    if (existing_inode > 0) {
+        return ERR_FILE_EXISTS;
+    }
+
     // Find an empty slot in the parent directory table
     int next_dirent_idx = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
 
@@ -241,16 +266,46 @@ int _fs_add_dirent(
     inode_table[parent_dir_inode].filesize += sizeof(dirent_t);
     inode_table[parent_dir_inode].refcount += 1;
 
-    _fs_write_sector(inode_table[parent_dir_inode].sector, (unsigned char *)parent_dir);
+    _fs_sync_dir(parent_dir_inode, parent_dir);
 
     return next_dirent_idx;
 }
 
-int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigned char flags) {
+int _fs_remove_dirent(int parent_dir_inode, int idx) {
+    dirent_t * parent_dir = _fs_load_dir(parent_dir_inode);
+    if (parent_dir == 0) {
+        return ERR_FILE_NOT_FOUND;
+    }
+
+    int entries = inode_table[parent_dir_inode].filesize / sizeof(dirent_t);
+    bcopy(
+          (unsigned char *)&parent_dir[idx],
+          (unsigned char *)&parent_dir[idx+1],
+          (entries-idx-1) * sizeof(dirent_t));
+    bzero(
+          (unsigned char *)&parent_dir[entries-1],
+          sizeof(dirent_t));
+
+    inode_table[parent_dir_inode].filesize -= sizeof(dirent_t);
+    inode_table[parent_dir_inode].refcount -= 1;
+    _fs_sync_dir(parent_dir_inode, parent_dir);
+
+    return 0;
+}
+
+int _fs_mk(
+           int parent_dir_inode,
+           dirent_t * parent_dir,
+           char * filename,
+           unsigned char flags) {
     // Check if the file already exists
     int index;
-    int existing_inode = _fs_find_inode(parent_dir_inode, parent_dir, filename, &index);
-    if (existing_inode >= 0) {
+    int existing_inode = _fs_find_inode(
+                                        parent_dir_inode,
+                                        parent_dir,
+                                        filename,
+                                        &index);
+    if (existing_inode > 0) {
         return ERR_FILE_EXISTS;
     }
 
@@ -265,7 +320,7 @@ int _fs_mk(int parent_dir_inode, dirent_t * parent_dir, char * filename, unsigne
     inode_table[new_inode].refcount = 1;
     inode_table[new_inode].flags = flags;
 
-    _fs_add_dirent(parent_dir_inode, parent_dir, filename, flags, new_inode);
+    _fs_add_dirent(parent_dir_inode, filename, new_inode);
 
     return new_inode;
 }
@@ -287,8 +342,7 @@ int fs_touch(int parent_dir_inode, char * filename) {
         return ERR_FILE_NOT_FOUND;
     }
     int new_inode = _fs_mk(parent_dir_inode, parent_dir, filename, 0);
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
-    return new_inode;
+    return _fs_cleanup(new_inode);
 }
 
 int fs_resolve_path(char * path, path_info_t * path_info) {
@@ -331,7 +385,7 @@ int fs_resolve_path(char * path, path_info_t * path_info) {
     }
 
     path_info->parent_dir_inode = dir_inode;
-    path_info->filename = path_parts[nparts-1];
+    strncpy(path_info->filename, path_parts[nparts-1], 14);
 
     // Find the file. It's ok if it doesn't exist.
     dirent_t * dir = _fs_load_dir(dir_inode);
@@ -373,10 +427,9 @@ int fs_mkdir(char * path) {
     dir[1].filename[0] = '.';
     dir[1].filename[1] = '.';
 
-    _fs_write_sector(inode_table[new_inode].sector, (unsigned char *)dir);
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
+    _fs_sync_dir(new_inode, dir);
 
-    return new_inode;
+    return _fs_cleanup(new_inode);
 }
 
 int fs_write(int inode, unsigned char * buf, int len, int offset) {
@@ -436,9 +489,7 @@ int fs_write(int inode, unsigned char * buf, int len, int offset) {
         _fs_write_sector(inode_table[inode].sector, temp);
     }
 
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
-
-    return bytes_to_write;
+    return _fs_cleanup(bytes_to_write);
 }
 
 int fs_read(int inode, unsigned char * buf, int len, int offset) {
@@ -489,6 +540,80 @@ int fs_read(int inode, unsigned char * buf, int len, int offset) {
     return bytes_to_read;
 }
 
+int fs_rename(char * src, char * dst) {
+    path_info_t src_info;
+    int ret = fs_resolve_path(src, &src_info);
+    if (ret < 0) {
+        return ret;
+    }
+    if (src_info.inode == 0) {
+        return ERR_FILE_NOT_FOUND;
+    }
+
+    path_info_t dst_info;
+    ret = fs_resolve_path(dst, &dst_info);
+    if (ret < 0) {
+        return ret;
+    }
+
+    if (src_info.inode == dst_info.inode) {
+        return 0;
+    }
+
+    if (dst_info.inode == 0 || !fs_is_dir(dst_info.inode)) {
+        // dst does not exist or is file
+
+        if (dst_info.inode != 0) {
+            // dst exists
+            if (fs_is_dir(src_info.inode)) {
+                // don't rename an existing dir onto an existing file
+                return ERR_FILE_EXISTS;
+            }
+            // dst is file, remove it
+            fs_unlink(dst);
+        }
+
+        if (src_info.parent_dir_inode == dst_info.parent_dir_inode) {
+            // src and dst in the same parent dir, just rename the dir entry
+            dirent_t * dir = _fs_load_dir(src_info.parent_dir_inode);
+            int index;
+            _fs_find_inode(
+                           src_info.parent_dir_inode,
+                           dir,
+                           src_info.filename,
+                           &index);
+            strncpy(dir[index].filename, dst_info.filename, 14);
+            _fs_sync_dir(dst_info.parent_dir_inode, dir);
+            return 0;
+        }
+
+        // create new dir entry and remove old
+        ret = _fs_add_dirent(
+                             dst_info.parent_dir_inode,
+                             dst_info.filename,
+                             src_info.inode);
+        if (ret < 0) return _fs_cleanup(ret);
+
+    } else {
+        // dst is existing dir
+        if (src_info.parent_dir_inode == dst_info.inode) {
+            // already in this dir
+            return 0;
+        }
+
+        // create new dir entry and remove old
+        ret = _fs_add_dirent(
+                             dst_info.inode,
+                             src_info.filename,
+                             src_info.inode);
+        if (ret < 0) return _fs_cleanup(ret);
+    }
+
+    // in either case, remove src dirent
+    ret = _fs_remove_dirent(src_info.parent_dir_inode, src_info.index);
+    return _fs_cleanup(ret);
+}
+
 int fs_link(char * src, char * dst) {
     path_info_t src_info;
     int ret = fs_resolve_path(src, &src_info);
@@ -511,19 +636,16 @@ int fs_link(char * src, char * dst) {
         return ERR_FILE_EXISTS;
     }
 
-    dirent_t * dst_dir = _fs_load_dir(dst_info.parent_dir_inode);
-    if (dst_dir == 0) {
-        return ERR_FILE_NOT_FOUND;
-    }
-
-    ret = _fs_add_dirent(dst_info.parent_dir_inode, dst_dir, dst_info.filename, 0, src_info.inode);
+    ret = _fs_add_dirent(
+                         dst_info.parent_dir_inode,
+                         dst_info.filename,
+                         src_info.inode);
     if (ret < 0) {
         return ret;
     }
 
     inode_table[src_info.inode].refcount += 1;
-
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
+    return _fs_cleanup(0);
 }
 
 int fs_unlink(char * target) {
@@ -540,31 +662,16 @@ int fs_unlink(char * target) {
     }
 
     // Remove parent dir entry
-
-    dirent_t * parent_dir = _fs_load_dir(path_info.parent_dir_inode);
-    if (parent_dir == 0) {
-        return ERR_FILE_NOT_FOUND;
-    }
-
-    int entries = inode_table[path_info.parent_dir_inode].filesize / sizeof(dirent_t);
-    int i = path_info.index;
-    bcopy((unsigned char *)&parent_dir[i], (unsigned char *)&parent_dir[i+1], (entries-i-1) * sizeof(dirent_t));
-    bzero((unsigned char *)&parent_dir[entries-1], sizeof(dirent_t));
-
-    inode_t * pi = &inode_table[path_info.parent_dir_inode];
-    pi->filesize -= sizeof(dirent_t);
-    pi->refcount -= 1;
-
-    _fs_write_sector(pi->sector, (unsigned char *)parent_dir);
+    _fs_remove_dirent(path_info.parent_dir_inode, path_info.index);
 
     // Decrement inode refcount and clean up if necessary
-
     inode_t * fi = &inode_table[path_info.inode];
     fi->refcount -= 1;
     if (fi->refcount > 0) {
-        return fi->refcount;
+        return _fs_cleanup(fi->refcount);
     }
 
+    // Free sectors
     if (inode_table[path_info.inode].flags & INODE_FLAG_INDIRECT) {
         // Indirect case
         inode_indirect_t indirect[IINODES_PER_SECTOR];
@@ -581,9 +688,7 @@ int fs_unlink(char * target) {
     fi->filesize = 0;
     fi->flags = 0;
 
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
-
-    return 0;
+    return _fs_cleanup(0);
 }
 
 int fs_rmdir(char * target) {
@@ -610,26 +715,8 @@ int fs_rmdir(char * target) {
     di->flags = 0;
 
     // Remove parent dir entry
-
-    dirent_t * parent_dir = _fs_load_dir(path_info.parent_dir_inode);
-    if (parent_dir == 0) {
-        return ERR_FILE_NOT_FOUND;
-    }
-
-    int entries = inode_table[path_info.parent_dir_inode].filesize / sizeof(dirent_t);
-    int i = path_info.index;
-    bcopy((unsigned char *)&parent_dir[i], (unsigned char *)&parent_dir[i+1], (entries-i-1) * sizeof(dirent_t));
-    bzero((unsigned char *)&parent_dir[entries-1], sizeof(dirent_t));
-
-    inode_t * pi = &inode_table[path_info.parent_dir_inode];
-    pi->filesize -= sizeof(dirent_t);
-    pi->refcount -= 1;
-
-    _fs_write_sector(pi->sector, (unsigned char *)parent_dir);
-
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
-
-    return 0;
+    ret = _fs_remove_dirent(path_info.parent_dir_inode, path_info.index);
+    return _fs_cleanup(ret);
 }
 
 void _fs_mkdev() {
@@ -638,8 +725,6 @@ void _fs_mkdev() {
     _fs_mk(dev_inode, dev_dir, "tty", INODE_FLAG_CHAR_DEVICE | VFILE_DEV_TTY);
     _fs_mk(dev_inode, dev_dir, "ptr", INODE_FLAG_CHAR_DEVICE | VFILE_DEV_PTR);
     _fs_mk(dev_inode, dev_dir, "hd", INODE_FLAG_BLOCK_DEVICE | VFILE_DEV_HD);
-    _fs_write_sector(INODE_TABLE, (unsigned char *)inode_table);
-    fs_mkdir("/bin");
 }
 
 int fs_stat(int inode, stat_t * stat) {
@@ -655,6 +740,9 @@ int fs_stat_path(char * path, stat_t * stat) {
     int ret = fs_resolve_path(path, &path_info);
     if (ret < 0) {
       return ret;
+    }
+    if (path_info.inode == 0) {
+        return ERR_FILE_NOT_FOUND;
     }
     return fs_stat(path_info.inode, stat);
 }

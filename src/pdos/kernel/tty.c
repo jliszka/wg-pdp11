@@ -15,6 +15,9 @@
 #define DEL 0177
 #define ESC 033
 #define CONT 024
+#define CTRL_C 3
+#define CTRL_D 4
+#define CTRL_Z 26
 
 // This lives in isr.s
 extern void isrinit();

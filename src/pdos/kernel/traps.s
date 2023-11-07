@@ -62,7 +62,7 @@ ttable:
     .word trap.getcwd   # 18
     .word trap.pipe     # 19
     .word trap.dup2     # 20
-
+    .word trap.rename   # 21
 
 # r5 points to user-space stack:
 #     - exit code
@@ -499,4 +499,29 @@ trap.dup2:
     mfpi 4(r5)
     jsr pc, _io_dup2
     add $4, sp
+    jmp ret
+
+# r5 points to user-space stack:
+#     - target path name (user-space pointer)
+#     - source path name (user-space pointer)
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.rename:
+    mfpi 4(r5)          # source path
+    push $buf
+    jsr pc, readbuf
+    add $4, sp
+
+    push r0             # r0 is the beginning of the target path string
+
+    mfpi 6(r5)          # target path
+    push r0
+    jsr pc, readbuf
+    add $4, sp
+
+    # target path is already on the stack
+    push $buf          # source path
+    jsr pc, _fs_rename
+    add $4, sp
+
     jmp ret

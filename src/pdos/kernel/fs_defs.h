@@ -81,7 +81,7 @@ typedef struct {
   unsigned int parent_dir_inode;
   unsigned int inode;
   unsigned int index;
-  char * filename;
+  char filename[14];
 } path_info_t;
 
 typedef struct {

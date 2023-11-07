@@ -34,6 +34,7 @@ int fs_read_dir(int dir_inode, int buflen, dirent_t * buf);
 int fs_is_dir(int inode);
 int fs_is_device(int inode, int * device_type);
 int fs_filesize(int inode);
+int fs_rename(char * src, char * dst);
 int fs_link(char * src, char * dst);
 int fs_unlink(char * target);
 int fs_rmdir(char * dirname);
