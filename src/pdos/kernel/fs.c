@@ -32,6 +32,7 @@ extern unsigned int pwd;
 void _fs_mkdev();
 int _fs_cleanup(int ret);
 void _fs_sync_dir(int inode, dirent_t * dir);
+void _fs_free_sectors(int inode);
 
 int fs_init() {
     fs_mount();
@@ -128,6 +129,18 @@ int fs_filesize(int inode) {
     return inode_table[inode].filesize;
 }
 
+int fs_truncate(int inode) {
+    if (inode_table[inode].refcount == 0) {
+        return ERR_FILE_NOT_FOUND;
+    }
+    int device_type;
+    if (fs_is_device(inode, &device_type) != 0) {
+        return ERR_NOT_SUPPORTED;
+    }
+    _fs_free_sectors(inode);
+    return _fs_cleanup(0);
+}
+
 int _fs_allocate_sector() {
     unsigned char buf[BYTES_PER_SECTOR];
     _fs_read_sector(FREE_SECTOR_MAP, buf);
@@ -146,6 +159,24 @@ int _fs_free_sector(unsigned int sector) {
     _fs_read_sector(FREE_SECTOR_MAP, buf);
     bitvec_free(sector, buf);
     _fs_write_sector(FREE_SECTOR_MAP, buf);
+}
+
+void _fs_free_sectors(int inode) {
+    inode_t * fi = &inode_table[inode];
+    if (fi->flags & INODE_FLAG_INDIRECT) {
+        // Indirect case
+        inode_indirect_t indirect[IINODES_PER_SECTOR];
+        _fs_read_sector(fi->sector, (unsigned char *)indirect);
+        for (int i = 0; i < IINODES_PER_SECTOR; i++) {
+            if (indirect[i].sector > 0) {
+                _fs_free_sector(indirect[i].sector);
+            }
+        }
+    }
+
+    _fs_free_sector(fi->sector);
+    fi->sector = 0;
+    fi->filesize = 0;
 }
 
 dirent_t * _fs_load_dir(int dir_inode) {
@@ -672,20 +703,7 @@ int fs_unlink(char * target) {
     }
 
     // Free sectors
-    if (inode_table[path_info.inode].flags & INODE_FLAG_INDIRECT) {
-        // Indirect case
-        inode_indirect_t indirect[IINODES_PER_SECTOR];
-        _fs_read_sector(inode_table[path_info.inode].sector, (unsigned char *)indirect);
-        for (int i = 0; i < IINODES_PER_SECTOR; i++) {
-            if (indirect[i].sector > 0) {
-                _fs_free_sector(indirect[i].sector);
-            }
-        }
-    }
-
-    _fs_free_sector(fi->sector);
-    fi->sector = 0;
-    fi->filesize = 0;
+    _fs_free_sectors(path_info.inode);
     fi->flags = 0;
 
     return _fs_cleanup(0);

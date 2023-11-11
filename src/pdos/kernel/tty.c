@@ -15,9 +15,6 @@
 #define DEL 0177
 #define ESC 033
 #define CONT 024
-#define CTRL_C 3
-#define CTRL_D 4
-#define CTRL_Z 26
 
 // This lives in isr.s
 extern void isrinit();
@@ -84,22 +81,26 @@ int tty_write(int nbytes, char *str)
     return len;
 }
 
-int tty_read(int nbytes, char *dst)
+int tty_read(int nbytes, char *dst, char *endch)
 {
     int len = 0;
-    while (inbuf[inend-1] != '\r')
-    {
+    while (inbuf[inend-1] != '\n' && inbuf[inend-1] != CTRL_D) {
         asm("wait");
     }
-    while (inbuf[inptr] != '\r' && len < nbytes-1 && len < BUFSIZE)
-    {
-        *dst++ = inbuf[inptr++];
+
+    char c;
+    while (len < nbytes && len < BUFSIZE) {
+        c = inbuf[inptr];
+        if (c == CTRL_D) break;
+        if (c == '\n') break;
+        *dst++ = c;
+        inptr++;
         len++;
     }
-    *dst = 0;
+    *endch = c;
     inend = 0;
     inptr = 0;
-    return len+1;
+    return len;
 }
 
 unsigned char tty_getch() 
@@ -140,7 +141,8 @@ void kb_handler()
     } else if (c == '\r') {
         outbuf[outend++ % BUFSIZE] = '\r';
         outbuf[outend++ % BUFSIZE] = '\n';
-        inbuf[inend++] = c;
+        inbuf[inend++] = '\r';
+        inbuf[inend++] = '\n';
     } else if (c == CONT) {
         send_allowance = MAX_ALLOWANCE;
         tty_flush();

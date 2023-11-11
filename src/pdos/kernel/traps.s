@@ -63,6 +63,7 @@ ttable:
     .word trap.pipe     # 19
     .word trap.dup2     # 20
     .word trap.rename   # 21
+    .word trap.kill     # 22
 
 # r5 points to user-space stack:
 #     - exit code
@@ -95,7 +96,7 @@ trap.halt:
 
 # No arguments
 trap.fork:
-    push $2$                     # return address
+    push $2$                    # return address
     push r2                     # set up the stack for the child
     push r3
     push r4
@@ -524,4 +525,17 @@ trap.rename:
     jsr pc, _fs_rename
     add $4, sp
 
+    jmp ret
+
+
+# r5 points to user-space stack:
+#     - signal
+#     - pid
+#     - return address for call to syscall stub
+# r5 -> old r5
+trap.kill:
+    mfpi 6(r5)
+    mfpi 4(r5)
+    jsr pc, _proc_kill
+    add $4, sp
     jmp ret

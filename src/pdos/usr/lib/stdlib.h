@@ -21,5 +21,6 @@ int strntok(char * str, char delim, char * tokens[], int ntokens);
 char getopt(int * argc, char *** argv, char * optstring, char ** optarg);
 void bzero(unsigned char * buf, int n);
 void bcopy(unsigned char * dst, unsigned char * src, int n);
+int trim(char * str);
 
 #endif

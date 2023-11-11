@@ -69,7 +69,12 @@ void cmd()
         print("> ");
         tty_flush();
 
-        tty_read(256, buf);
+        char c;
+        int len = tty_read(256, buf, &c);
+        for (c = buf[len-1]; c == '\r' || c == '\n'; c = buf[--len]) {
+            buf[len-1] = 0;
+        }
+
         int ret = execute(buf);
         print(itoa(10, ret, buf));
         print(") ");

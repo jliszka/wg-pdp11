@@ -41,6 +41,7 @@ int fs_rmdir(char * dirname);
 char * fs_build_path(int dir_inode, char * buf, int len);
 int fs_stat(int inode, stat_t * stat);
 int fs_stat_path(char * path, stat_t * stat);
+int fs_truncate(int inode);
 
 #define fs_read_block(inode, blockno, dst) \
 	fs_read(inode, dst, BYTES_PER_SECTOR, fs_pos_from_block(blockno))

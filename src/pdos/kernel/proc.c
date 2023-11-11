@@ -19,6 +19,8 @@
 #define STATE_EXITED 3
 #define STATE_IO_BLOCKED 4
 
+#define SIG_KILL 9
+
 extern int userexec(unsigned int sp);
 extern int kret(unsigned int ksp, unsigned int kernel_stack_page, unsigned int * kspp);
 extern unsigned int pwd;
@@ -32,6 +34,8 @@ typedef struct {
     int state;
     int ppid;
     int cwd;
+    int signal;
+    int flags;
     fd_t * fds[MAX_PROC_FDS];
 } pcb_t;
 
@@ -152,11 +156,17 @@ int proc_create() {
     pt->kernel_stack_page = vm_use_page(vm_get_kernel_stack_page());
     pt->ksp = 0;
     pt->exit_code = 0;
+    pt->signal = 0;
+    pt->flags = PROC_FLAG_HAS_TTY_IN | PROC_FLAG_HAS_TTY_OUT;
     pt->state = STATE_RUNNABLE;
     pt->ppid = -1;
     pt->cwd = ROOT_DIR_INODE;
 
     cur_pid = i;
+
+    // Initialize stdin and stdout
+    io_open("/dev/tty", 'r');
+    io_open("/dev/tty", 'w');
 
     return i;
 }
@@ -206,34 +216,9 @@ unsigned int _proc_init_stack(int argc, char * argv[], int stack_page) {
     return stack;
 }
 
-int proc_exec(int argc, char *argv[]) {
-    pcb_t * pt = &ptable[cur_pid];
 
-    if (pt->code_page != 0) {
-        vm_free_page(pt->code_page);
-    }
-    pt->code_page = vm_allocate_page();
-
-    // Load program into memory
-    int ret = _proc_load(argv[0], pt->code_page);
-    if (ret != 0) return ret;
-
-    // Initialize stdin and stdout
-    _proc_free_fds(pt, cur_pid);
-    io_open("/dev/tty", 'r');
-    io_open("/dev/tty", 'w');    
-
-    // Set up user page tables
-    vm_user_init(pt->code_page, pt->stack_page);
-
-    // Set up the stack
-    int stack = _proc_init_stack(argc, argv, pt->stack_page);
-
-    // Call user program main.
-    int exit_code = userexec(stack);
-
-    // Need to reload pt because we might have switched contexts
-    pt = &ptable[cur_pid];
+int _proc_cleanup(int pid, int exit_code) {
+    pcb_t * pt = &ptable[pid];
     pt->exit_code = exit_code;
 
     if (pt->ppid == -1) {
@@ -248,9 +233,39 @@ int proc_exec(int argc, char *argv[]) {
             ppt->state = STATE_RUNNABLE;
         }
     }
+}
+
+
+int proc_exec(int argc, char *argv[]) {
+    pcb_t * pt = &ptable[cur_pid];
+
+    if (pt->code_page != 0) {
+        vm_free_page(pt->code_page);
+    }
+    pt->code_page = vm_allocate_page();
+
+    // Load program into memory
+    int ret = _proc_load(argv[0], pt->code_page);
+    if (ret != 0) return ret;
+
+    // Set up user page tables
+    vm_user_init(pt->code_page, pt->stack_page);
+
+    // Set up the stack
+    int stack = _proc_init_stack(argc, argv, pt->stack_page);
+
+    // Call user program main.
+    int exit_code = userexec(stack);
+
+    // Flush stdout
+    io_fsync(1);
+
+    // Need to reload pt because we might have switched contexts
+    _proc_cleanup(cur_pid, exit_code);
 
     return proc_switch();
 }
+
 
 int proc_dup(unsigned int sp, unsigned int ksp) {
     int child_pid;
@@ -271,6 +286,8 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     pt->kernel_stack_page = vm_allocate_page();
     pt->ksp = ksp;
     pt->exit_code = 0;
+    pt->signal = 0;
+    pt->flags = ppt->flags;
     pt->state = STATE_RUNNABLE;
     pt->ppid = cur_pid;
     pt->cwd = ppt->cwd;
@@ -336,12 +353,34 @@ void proc_free(int pid) {
     _proc_free_fds(pt, pid);
 }
 
+int proc_get_flag(int flag) {
+    pcb_t * pt = &ptable[cur_pid];
+    return (pt->flags & flag) != 0 ? 1 : 0;
+}
+
+void proc_set_flag(int flag) {
+    pcb_t * pt = &ptable[cur_pid];
+    pt->flags |= flag;
+}
+
+void proc_clear_flag(int flag) {
+    pcb_t * pt = &ptable[cur_pid];
+    pt->flags &= ~flag;
+}
 
 int proc_switch() {
     int new_pid;
 
-    // Save curent ksp
     pcb_t * pt = &ptable[cur_pid];
+
+    // Handle any signals
+    for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
+        if (ptable[new_pid].signal != 0) {
+            if (ptable[new_pid].signal == SIG_KILL) {
+                _proc_cleanup(new_pid, SIG_KILL);
+            }
+        }
+    }
 
     // Find a new process to run.
     for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
@@ -370,6 +409,7 @@ int proc_switch() {
 
     pcb_t * new_pt = &ptable[new_pid];
     cur_pid = new_pid;
+
     vm_user_init(new_pt->code_page, new_pt->stack_page);
     kret(new_pt->ksp, new_pt->kernel_stack_page, &(pt->ksp));
     return 0;
@@ -417,4 +457,9 @@ int proc_getcwd(char * path, int len) {
     char * end = fs_build_path(ptable[cur_pid].cwd, path, len);
     *end = 0;
     return (int)(end - path + 1);
+}
+
+int proc_kill(int pid, int signal) {
+    ptable[pid].signal = signal;
+    return 0;
 }

@@ -3,6 +3,9 @@
 
 #include "io.h"
 
+#define PROC_FLAG_HAS_TTY_IN 1
+#define PROC_FLAG_HAS_TTY_OUT 2
+
 void proc_init();
 int proc_fd_alloc(fd_t ** fdt);
 void proc_fd_free(int fd, int pid);
@@ -17,5 +20,8 @@ int proc_switch();
 int proc_chdir(char * path);
 int proc_getcwd(char * path, int len);
 int proc_block();
+int proc_get_flag(int flag);
+void proc_set_flag(int flag);
+void proc_clear_flag(int flag);
 
 #endif

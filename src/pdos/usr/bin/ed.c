@@ -44,6 +44,7 @@ int main(int argc, char ** argv) {
     print("*");
     fsync(STDOUT);
     int len = input(64, buf);
+    len = trim(buf);
     int nparts = strntok(buf, ' ', parts, 8);
 
     while (strncmp(parts[0], "q", 2) != 0) {
@@ -286,7 +287,7 @@ int cmd_write(char * file) {
         println("Could not overwrite file");
         return ret;
     }
-    int fd = open(file, 'w');
+    int fd = open(file, 't');
     if (fd < 0) {
         println("Error writing file");
         return fd;

@@ -33,7 +33,7 @@ int io_open(char * path, char mode) {
 
     if (path_info.inode == 0) {
         // File not found. If we're in write mode, create it.
-        if (mode != 'w' && mode != 'a') {
+        if (mode != 'w' && mode != 'a' && mode != 't') {
             return ERR_FILE_NOT_FOUND;
         }
         path_info.inode = fs_touch(path_info.parent_dir_inode, path_info.filename);
@@ -51,6 +51,8 @@ int io_open(char * path, char mode) {
     int pos = 0;
     if (mode == 'a') {
         pos = fs_filesize(path_info.inode);
+    } else if (mode == 't') {
+        fs_truncate(path_info.inode);
     }
 
     // Now that everything checks out, allocate the fd.
@@ -128,7 +130,7 @@ int io_write(int fd, unsigned char * buf, unsigned int len) {
     if (fdt == 0) {
         return ERR_BAD_FD;
     }
-    if (fdt->mode != 'w' && fdt->mode != 'a') {
+    if (fdt->mode != 'w' && fdt->mode != 'a' && fdt->mode != 't') {
         return ERR_WRONG_FILE_MODE;
     }
     
@@ -145,7 +147,7 @@ int io_fsync(int fd) {
     if (fdt == 0) {
         return ERR_BAD_FD;
     }
-    if (fdt->mode != 'w' && fdt->mode != 'a') {
+    if (fdt->mode != 'w' && fdt->mode != 'a' && fdt->mode != 't') {
         return ERR_WRONG_FILE_MODE;
     }
     
