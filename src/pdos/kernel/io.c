@@ -184,7 +184,7 @@ int io_pipe(int * writefd, int * readfd) {
     w_fdt->pos = 0;
     w_fdt->max_pos = 0;
     w_fdt->mode = 'w';
-    w_fdt->refcount = 2;
+    w_fdt->refcount = 1;
     w_fdt->vfile = &vfile_pipe;
     w_fdt->buffer = kmalloc();
     w_fdt->pipe_fdt = r_fdt;
@@ -194,7 +194,7 @@ int io_pipe(int * writefd, int * readfd) {
     r_fdt->pos = 0;
     r_fdt->max_pos = 0;
     r_fdt->mode = 'r';
-    r_fdt->refcount = 2;
+    r_fdt->refcount = 1;
     r_fdt->vfile = &vfile_pipe;
     r_fdt->buffer = w_fdt->buffer;
     r_fdt->pipe_fdt = w_fdt;

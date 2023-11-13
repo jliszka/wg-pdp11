@@ -13,8 +13,8 @@ int io_pipe_read(int fd, unsigned char * buf, unsigned int len) {
         if (remaining_bytes > 0) {
             break;
         }
-        if (w_fdt->mode == 0) {
-            // write side was closed
+        if (w_fdt->refcount == 0) {
+            // no more writers
             return 0;
         }
         
@@ -51,8 +51,8 @@ int io_pipe_write(int fd, unsigned char * buf, unsigned int len) {
         if (remaining_bytes > 0) {
             break;
         }
-        if (r_fdt->mode == 0) {
-            // read side was closed
+        if (r_fdt->refcount == 0) {
+            // no more readers
             return 0;
         }
         

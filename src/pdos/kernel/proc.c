@@ -102,10 +102,22 @@ void proc_fd_free(int fd, int pid) {
     }
     fdt->refcount--;
     if (fdt->refcount == 0) {
-        fdt->mode = 0;
-        if (fdt->buffer != 0) {
+        if (fdt->pipe_fdt != 0) {
+            fd_t * pfdt = fdt->pipe_fdt;
+            if (pfdt->refcount == 0) {
+                fdt->mode = 0;
+                pfdt->mode = 0;
+                kfree(fdt->buffer);
+                fdt->buffer = 0;
+                pfdt->buffer = 0;
+                fdt->pipe_fdt = 0;
+                pfdt->pipe_fdt = 0;
+            }
+        } else {
+            fdt->mode = 0;
             kfree(fdt->buffer);
             fdt->buffer = 0;
+            fdt->pipe_fdt = 0;
         }
     }
     ptable[pid].fds[fd] = 0;
@@ -216,25 +228,35 @@ unsigned int _proc_init_stack(int argc, char * argv[], int stack_page) {
     return stack;
 }
 
-
 int _proc_cleanup(int pid, int exit_code) {
     pcb_t * pt = &ptable[pid];
-    pt->exit_code = exit_code;
+
+    vm_free_page(pt->code_page);
+    vm_free_page(pt->stack_page);
+    vm_free_page(pt->kernel_stack_page);
+    pt->code_page = 0;
+    pt->stack_page = 0;
+    pt->kernel_stack_page = 0;
+    pt->ksp = 0;
+    pt->cwd = 0;
+    pt->exit_code = 0;
+
+    _proc_free_fds(pt, pid);
 
     if (pt->ppid == -1) {
         // Program has exited and has no parent.
-        proc_free(cur_pid);
+        pt->state = 0;
     } else {
+        pt->state = STATE_EXITED;
+        pt->exit_code = exit_code;
         // If the parent was waiting for us to exit,
         // make the parent runnable.
-        pt->state = STATE_EXITED;
         pcb_t * ppt = &ptable[pt->ppid];
         if (ppt->state == STATE_WAIT) {
             ppt->state = STATE_RUNNABLE;
         }
     }
 }
-
 
 int proc_exec(int argc, char *argv[]) {
     pcb_t * pt = &ptable[cur_pid];
@@ -296,9 +318,6 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     for (int i = 0; i < MAX_PROC_FDS; i++) {
         if (ppt->fds[i] != 0) {
             ppt->fds[i]->refcount++;
-            if (ppt->fds[i]->pipe_fdt != 0) {
-                ppt->fds[i]->pipe_fdt->refcount++;
-            }
             pt->fds[i] = ppt->fds[i];
         }
     }
@@ -333,25 +352,6 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     return child_pid;
 }
 
-
-void proc_free(int pid) {
-    if (pid < 0 || pid >= MAX_PROCS) {
-        asm("halt");
-    }
-    pcb_t * pt = &ptable[pid];
-    vm_free_page(pt->code_page);
-    vm_free_page(pt->stack_page);
-    vm_free_page(pt->kernel_stack_page);
-    pt->code_page = 0;
-    pt->stack_page = 0;
-    pt->kernel_stack_page = 0;
-    pt->ksp = 0;
-    pt->ppid = -1;
-    pt->cwd = 0;
-    pt->state = 0;
-
-    _proc_free_fds(pt, pid);
-}
 
 int proc_get_flag(int flag) {
     pcb_t * pt = &ptable[cur_pid];
@@ -435,7 +435,11 @@ int proc_wait(int pid) {
     }
 
     int ret = pt->exit_code;
-    proc_free(pid);
+    pt = &ptable[pid];
+    pt->state = 0;
+    pt->exit_code = 0;
+    pt->ppid = -1;
+
     return ret;
 }
 

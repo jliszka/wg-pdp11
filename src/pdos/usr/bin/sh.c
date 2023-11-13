@@ -101,10 +101,13 @@ int main() {
             break;
         }
 
-        int pipe_readfd = -1;
-        int failed = 0;
+        int prev_pipe_rfd = -1;
+        ret = 0;
         for (int i = 0; i < ncmds; i++) {
+            int cur_pipe_rfd = -1;
+            int cur_pipe_wfd = -1;
             cmd_t * cmd = &cmds[i];
+            cmd->pid = -1;
             cmd->infd = -1;
             cmd->outfd = -1;
 
@@ -113,11 +116,11 @@ int main() {
                 if (cmd->infd < 0) {
                     printf("Cannot open %s: %d\r\n",
                            cmd->input, cmd->infd);
-                    failed = 1;
+                    ret = cmd->infd;
                     break;
                 }
             } else if (i > 0) {
-                cmd->infd = pipe_readfd;
+                cmd->infd = prev_pipe_rfd;
             }
 
             if (cmd->output != 0) {
@@ -125,14 +128,14 @@ int main() {
                 if (cmd->outfd < 0) {
                     printf("Cannot open %s: %d\r\n",
                            cmd->output, cmd->outfd);
-                    failed = 1;
+                    ret = cmd->outfd;
                     break;
                 }
             } else if (i + 1 < ncmds) {
-                ret = pipe(&(cmd->outfd), &pipe_readfd);
+                ret = pipe(&cur_pipe_wfd, &cur_pipe_rfd);
+                cmd->outfd = cur_pipe_wfd;
                 if (ret < 0) {
                     printf("Could not create pipe: %d\r\n", ret);
-                    failed = 1;
                     break;
                 }
             }
@@ -148,16 +151,28 @@ int main() {
                     dup2(cmd->outfd, STDOUT);
                     close(cmd->outfd);
                 }
-                int ret = exec(cmd->argc, cmd->argv);
+                if (cur_pipe_rfd >= 0) {
+                    close(cur_pipe_rfd);
+                }
+                ret = exec(cmd->argc, cmd->argv);
                 printf("exec failed: %d\r\n", ret);
-                return ret;
-            } else {
-                // parent
-                cmd->pid = pid;
+                break;
             }
+
+            // parent
+            cmd->pid = pid;
+
+            if (cmd->infd > 1) {
+                close(cmd->infd);
+            }
+            if (cmd->outfd > 1) {
+                close(cmd->outfd);
+            }
+
+            prev_pipe_rfd = cur_pipe_rfd;
         }
 
-        if (failed != 0) {
+        if (ret != 0) {
             for (int i = 0; i < ncmds; i++) {
                 cmd_t * cmd = &cmds[i];
                 if (cmd->pid > 0) {
@@ -167,18 +182,11 @@ int main() {
         }
 
         for (int i = 0; i < ncmds; i++) {
-            cmd_t * cmd = &cmds[i];
-            if (cmd->infd >= 0) {
-                close(cmd->infd);
-            }
-            if (cmd->outfd >= 0) {
-                close(cmd->outfd);
+            if (cmds[i].pid > 0) {
+                ret = wait(cmds[i].pid);
             }
         }
 
-        for (int i = 0; i < ncmds; i++) {
-            ret = wait(cmds[i].pid);
-        }
         printf("%d) ", ret);
     }
     return 0;
