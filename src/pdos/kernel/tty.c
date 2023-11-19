@@ -21,16 +21,22 @@
 extern void isrinit();
 
 #define BUFSIZE 64
-unsigned char outbuf[BUFSIZE];
-volatile unsigned int outend = 0;
-volatile unsigned int outptr = 0;
-
-unsigned char inbuf[BUFSIZE];
-volatile unsigned int inend = 0;
-volatile unsigned int inptr = 0;
-
 #define MAX_ALLOWANCE 32
-volatile int send_allowance = MAX_ALLOWANCE;
+
+typedef struct {
+    unsigned char outbuf[BUFSIZE];
+    unsigned int outend;
+    unsigned int outptr;
+
+    unsigned char inbuf[BUFSIZE];
+    unsigned int inend;
+    unsigned int inptr;
+
+    int send_allowance;
+} tty_t;
+
+#define MAX_TTY 4
+tty_t ttys[MAX_TTY];
 
 #define kb_enable() \
     *((volatile unsigned int *)KBS) |= KB_ENABLE;
@@ -44,12 +50,14 @@ volatile int send_allowance = MAX_ALLOWANCE;
 #define tt_disable() \
     *((volatile unsigned int *)TTS) &= ~TT_ENABLE;
 
-void tty_init()
-{
-    outend = 0;
-    outptr = 0;
-    inend = 0;
-    inptr = 0;
+void tty_init() {
+    for (int i = 0; i < MAX_TTY; i++) {
+        ttys[i].outend = 0;
+        ttys[i].outptr = 0;
+        ttys[i].inend = 0;
+        ttys[i].inptr = 0;
+        ttys[i].send_allowance = MAX_ALLOWANCE;
+    }
 
     tt_disable();
     kb_disable();
@@ -58,112 +66,116 @@ void tty_init()
     kb_enable();
 }
 
-int tty_write(int nbytes, char *str)
-{
+int tty_write(int tty, int nbytes, char *str) {
+    tty_t *ptty = &ttys[tty];
     asm("spl 7");
-    if (outend + nbytes > outptr + BUFSIZE) {
-        nbytes = outptr + BUFSIZE - outend;
+    if (ptty->outend + nbytes > ptty->outptr + BUFSIZE) {
+        nbytes = ptty->outptr + BUFSIZE - ptty->outend;
     }
     asm("spl 0");
     if (nbytes == 0) {
-        tty_flush();
+        tty_flush(tty);
         return 0;
     }
 
     int len = nbytes;
     while (nbytes-- > 0)
     {
-        outbuf[outend++ % BUFSIZE] = *str;
+        ptty->outbuf[ptty->outend++ % BUFSIZE] = *str;
         if (*str == '\n') {
-            tty_flush();
+            tty_flush(tty);
         }
         str++;
     }
     return len;
 }
 
-int tty_read(int nbytes, char *dst, char *endch)
-{
+int tty_read(int tty, int nbytes, char *dst, char *endch) {
+    tty_t *ptty = &ttys[tty];
     int len = 0;
-    while (inbuf[inend-1] != '\n' && inbuf[inend-1] != CTRL_D) {
+    while (1) {
+        char last_char = ptty->inbuf[ptty->inend-1];
+        if (last_char == '\n' || last_char == CTRL_D) break;
         proc_block();
     }
 
     char c;
     while (len < nbytes && len < BUFSIZE) {
-        c = inbuf[inptr];
+        c = ptty->inbuf[ptty->inptr];
         if (c == CTRL_D) break;
         if (c == '\n') break;
         *dst++ = c;
-        inptr++;
+        ptty->inptr++;
         len++;
     }
     *endch = c;
-    inend = 0;
-    inptr = 0;
+    ptty->inend = 0;
+    ptty->inptr = 0;
     return len;
 }
 
-unsigned char tty_getch() 
-{
-    while (inptr == inend) {
+unsigned char tty_getch(int tty) {
+    tty_t *ptty = &ttys[tty];
+    while (ptty->inptr == ptty->inend) {
         proc_block();
     }
-    return inbuf[inptr++];
+    return ptty->inbuf[ptty->inptr++];
 }
 
-void tty_flush()
-{
-    if (outptr != outend) {
+void tty_flush(int tty) {
+    tty_t *ptty = &ttys[tty];
+    if (ptty->outptr != ptty->outend) {
         tt_disable();
         tt_enable();
-        while (outptr != outend) {
+        while (ptty->outptr != ptty->outend) {
             asm("wait");
         }
     }
 }
 
 // Keyboard interrupt handler, called from isr.s
-void kb_handler()
-{
+void kb_handler(int tty) {
     volatile unsigned char *rbuf = (unsigned char *)KBD;
     register char c = *rbuf;
+    tty_t *ptty = &ttys[tty];
 
     if (c == DEL || c == '\b') {
-        if (inend > 0) {
-            outbuf[outend++ % BUFSIZE] = '\b';
-            outbuf[outend++ % BUFSIZE] = ' ';
-            outbuf[outend++ % BUFSIZE] = '\b';
-            inend--;
+        if (ptty->inend > 0) {
+            ptty->outbuf[ptty->outend++ % BUFSIZE] = '\b';
+            ptty->outbuf[ptty->outend++ % BUFSIZE] = ' ';
+            ptty->outbuf[ptty->outend++ % BUFSIZE] = '\b';
+            ptty->inend--;
         }
     } else if (c == ESC) {
         ; // Don't echo or store escape codes (e.g., arrow keys)
     } else if (c == '\r') {
-        outbuf[outend++ % BUFSIZE] = '\r';
-        outbuf[outend++ % BUFSIZE] = '\n';
-        inbuf[inend++] = '\r';
-        inbuf[inend++] = '\n';
-    } else if (c == CONT) {
-        send_allowance = MAX_ALLOWANCE;
-        tty_flush();
+        ptty->outbuf[ptty->outend++ % BUFSIZE] = '\r';
+        ptty->outbuf[ptty->outend++ % BUFSIZE] = '\n';
+        ptty->inbuf[ptty->inend++] = '\r';
+        ptty->inbuf[ptty->inend++] = '\n';
+    } else if (c == CONT && tty == 0) {
+        ptty->send_allowance = MAX_ALLOWANCE;
+        tty_flush(tty);
         return;
     } else {
-        outbuf[outend++ % BUFSIZE] = c;
-        inbuf[inend++] = c;
+        ptty->outbuf[ptty->outend++ % BUFSIZE] = c;
+        ptty->inbuf[ptty->inend++] = c;
     }
     tt_enable();
 }
 
 // Terminal interrupt handler, called from isr.s
-void tt_handler()
-{
+void tt_handler(int tty) {
     volatile unsigned char *xbuf = (unsigned char *)TTD;
+    tty_t *ptty = &ttys[tty];
 
-    if (outptr == outend || send_allowance <= 0) {
+    if (ptty->outptr == ptty->outend || ptty->send_allowance <= 0) {
         tt_disable();
     } else {
-        *xbuf = outbuf[outptr++ % BUFSIZE];
-        send_allowance--;
+        *xbuf = ptty->outbuf[ptty->outptr++ % BUFSIZE];
+        if (tty == 0) {
+            ptty->send_allowance--;
+        }
     }
 }
 

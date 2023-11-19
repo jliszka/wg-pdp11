@@ -30,7 +30,9 @@ kbisr:
     push r4
     push r5
 
+    push $0                 # tty0
     jsr pc, _kb_handler     # call the C-land interrupt handler
+    add $2, sp
 
     pop r5
     pop r4
@@ -49,7 +51,9 @@ ttisr:
     push r4
     push r5
 
+    push $0                 # tty0
     jsr pc, _tt_handler     # call the C-land interrupt handler
+    add $2, sp
 
     pop r5
     pop r4

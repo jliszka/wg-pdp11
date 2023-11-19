@@ -9,7 +9,7 @@ int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
     }
 
     char ch;
-    int bytes_read = tty_read(len-2, buf, &ch);
+    int bytes_read = tty_read(0, len-2, buf, &ch);
 
     if (ch == CTRL_D) {
         // Set a flag indicating EOF
@@ -23,10 +23,10 @@ int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_tty_write(int fd, unsigned char * buf, unsigned int len) {
-    return tty_write(len, buf);
+    return tty_write(0, len, buf);
 }
 
 int io_tty_flush(int fd) {
-    tty_flush();
+    tty_flush(0);
     return 0;
 }

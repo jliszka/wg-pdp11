@@ -67,10 +67,10 @@ void cmd()
     {
         print(path);
         print("> ");
-        tty_flush();
+        tty_flush(0);
 
         char c;
-        int len = tty_read(256, buf, &c);
+        int len = tty_read(0, 256, buf, &c);
         for (c = buf[len-1]; c == '\r' || c == '\n'; c = buf[--len]) {
             buf[len-1] = 0;
         }
