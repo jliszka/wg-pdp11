@@ -368,35 +368,49 @@ void proc_clear_flag(int flag) {
     pt->flags &= ~flag;
 }
 
-int proc_switch() {
-    int new_pid;
-
-    pcb_t * pt = &ptable[cur_pid];
-
-    // Handle any signals
-    for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
-        if (ptable[new_pid].signal != 0) {
-            if (ptable[new_pid].signal == SIG_KILL) {
-                _proc_cleanup(new_pid, SIG_KILL);
-            }
-        }
-    }
-
+int _proc_select() {
     // Find a new process to run.
-    for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
-        if (ptable[new_pid].state == STATE_RUNNABLE) {
-            break;
+    for (int i = 1; i <= MAX_PROCS; i++) {
+        int pid = (cur_pid + i) % MAX_PROCS;
+        int state = ptable[pid].state;
+        if (state == STATE_RUNNABLE) {
+            return pid;
         }
     }
 
-    if (new_pid == MAX_PROCS) {
-        // If none found, see if any of the IO blocked procs are ready to wake up
-        for (new_pid = 0; new_pid < MAX_PROCS; new_pid++) {
-            if (ptable[new_pid].state == STATE_IO_BLOCKED) {
-                ptable[new_pid].state = STATE_RUNNABLE;
-                break;
+    asm("wait");
+
+    // If none found, see if any of the IO blocked procs are ready to wake up
+    for (int i = 1; i <= MAX_PROCS; i++) {
+        int pid = (cur_pid + i) % MAX_PROCS;
+        if (ptable[pid].state == STATE_IO_BLOCKED) {
+            ptable[pid].state = STATE_RUNNABLE;
+            return pid;
+        }
+    }
+
+    return MAX_PROCS;
+}
+
+int proc_switch() {
+    // Handle any signals
+    for (int pid = 0; pid < MAX_PROCS; pid++) {
+        if (ptable[pid].signal != 0) {
+            if (ptable[pid].signal == SIG_KILL) {
+                _proc_cleanup(pid, SIG_KILL);
             }
         }
+    }
+
+    int new_pid = MAX_PROCS;
+    while (new_pid == MAX_PROCS) {
+        new_pid = _proc_select();
+    }
+
+    if (new_pid == cur_pid) {
+        // Don't try to switch from current pid to itself,
+        // just return!
+        return 0;
     }
 
     if (new_pid == MAX_PROCS) {
@@ -404,22 +418,26 @@ int proc_switch() {
         // to the root shell.
         // TODO: asm("wait");
         cur_pid = -1;
-        return pt->exit_code;
+        return -1;
     }
 
+    pcb_t * pt = &ptable[cur_pid];
     pcb_t * new_pt = &ptable[new_pid];
     cur_pid = new_pid;
 
     vm_user_init(new_pt->code_page, new_pt->stack_page);
     kret(new_pt->ksp, new_pt->kernel_stack_page, &(pt->ksp));
+
     return 0;
 }
 
-
 int proc_block() {
-    pcb_t * pt = &ptable[cur_pid];
-    pt->state = STATE_IO_BLOCKED;
+    ptable[cur_pid].state = STATE_IO_BLOCKED;
     return proc_switch();
+}
+
+void proc_unblock(int pid) {
+    ptable[pid].state = STATE_RUNNABLE;
 }
 
 int proc_wait(int pid) {

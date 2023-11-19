@@ -20,6 +20,7 @@ int proc_switch();
 int proc_chdir(char * path);
 int proc_getcwd(char * path, int len);
 int proc_block();
+void proc_unblock(int pid);
 int proc_get_flag(int flag);
 void proc_set_flag(int flag);
 void proc_clear_flag(int flag);

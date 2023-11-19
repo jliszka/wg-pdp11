@@ -1,4 +1,5 @@
 #include "tty.h"
+#include "proc.h"
 
 #define KBV 060            // keyboard (TTI) interrupt vector
 #define KBS 0177560        // keyboard status register
@@ -85,7 +86,7 @@ int tty_read(int nbytes, char *dst, char *endch)
 {
     int len = 0;
     while (inbuf[inend-1] != '\n' && inbuf[inend-1] != CTRL_D) {
-        asm("wait");
+        proc_block();
     }
 
     char c;
@@ -105,9 +106,8 @@ int tty_read(int nbytes, char *dst, char *endch)
 
 unsigned char tty_getch() 
 {
-    while (inptr == inend) 
-    {
-        asm("wait");
+    while (inptr == inend) {
+        proc_block();
     }
     return inbuf[inptr++];
 }
