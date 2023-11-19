@@ -18,6 +18,7 @@ int atoi(char * str, int n);
 int strncmp(char * a, char * b, int n);
 char * strncpy(char * dst, char * src, int n);
 int strntok(char * str, char delim, char * tokens[], int ntokens);
+int strnsplit(char * str, char * delim, int len, char * tokens[], int ntokens);
 char getopt(int * argc, char *** argv, char * optstring, char ** optarg);
 void bzero(unsigned char * buf, int n);
 void bcopy(unsigned char * dst, unsigned char * src, int n);

@@ -1,5 +1,4 @@
-int strntok(char * str, char delim, char * tokens[], int ntokens)
-{
+int strntok(char * str, char delim, char * tokens[], int ntokens) {
     int token_count;
     for (token_count = 0; (token_count < ntokens) && (*str != 0); token_count++) {
         // Skip delimiter tokens to find the beginning of the token.

@@ -6,6 +6,7 @@ typedef struct {
     int argc;
     char * input;
     char * output;
+    int append;
     int pid;
     int infd;
     int outfd;
@@ -22,21 +23,19 @@ int parse_cmd(char * cmd, cmd_t * cmds) {
         cmd->argc = strntok(parts[i], ' ', cmd->argv, 16);
         cmd->input = 0;
         cmd->output = 0;
+        cmd->append = 0;
         cmd->pid = -1;
 
         int j;
         for (j = 0; j < cmd->argc; j++) {
-            if (strncmp(cmd->argv[j], "<", 2) == 0) {
-                break;
-            }
-            if (strncmp(cmd->argv[j], ">", 2) == 0) {
+            if (cmd->argv[j][0] == '<' || cmd->argv[j][0] == '>') {
                 break;
             }
         }
         int argc = j;
 
         for (; j < cmd->argc; j += 2) {
-            if (strncmp(cmd->argv[j], "<", 2) == 0) {
+            if (cmd->argv[j][0] == '<') {
                 if (i != 0) {
                     printf("Syntax error at <\n");
                     return -1;
@@ -47,7 +46,7 @@ int parse_cmd(char * cmd, cmd_t * cmds) {
                 }
                 cmd->input = cmd->argv[j+1];
             }
-            else if (strncmp(cmd->argv[j], ">", 2) == 0) {
+            else if (cmd->argv[j][0] == '>') {
                 if (i != ncmds - 1) {
                     printf("Syntax error at >\n");
                     return -1;
@@ -57,6 +56,9 @@ int parse_cmd(char * cmd, cmd_t * cmds) {
                     return -1;
                 }
                 cmd->output = cmd->argv[j+1];
+                if (cmd->argv[j][1] == '>') {
+                    cmd->append = 1;
+                }
             } else {
                 printf("Syntax error at %s\n", cmd->argv[j]);
                 return -1;
@@ -124,7 +126,11 @@ int main() {
             }
 
             if (cmd->output != 0) {
-                cmd->outfd = open(cmd->output, 't');
+                if (cmd->append) {
+                    cmd->outfd = open(cmd->output, 'a');
+                } else {
+                    cmd->outfd = open(cmd->output, 't');
+                }
                 if (cmd->outfd < 0) {
                     printf("Cannot open %s: %d\r\n",
                            cmd->output, cmd->outfd);
