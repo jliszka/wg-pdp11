@@ -17,9 +17,9 @@ int io_pipe_read(int fd, unsigned char * buf, unsigned int len) {
             // no more writers
             return 0;
         }
-        
+
         // nothing left to read, but more might be written, so block
-        proc_block();
+        proc_write_block(w_fdt);
     }
 
     fd_t * fdt = proc_fd(fd);
@@ -39,6 +39,13 @@ int io_pipe_read(int fd, unsigned char * buf, unsigned int len) {
         bcopy(buf, fdt->buffer + fdt->pos, len);
         fdt->pos += len;
     }
+
+    // Wake up writers waiting for a read
+    while (fdt->read_wait != 0) {
+        fdt->read_wait->state = PROC_STATE_RUNNABLE;
+        fdt->read_wait = fdt->read_wait->next;
+    }
+
     return len;
 }
 
@@ -57,7 +64,7 @@ int io_pipe_write(int fd, unsigned char * buf, unsigned int len) {
         }
         
         // no space left to write, so block until more is read
-        proc_block();
+        proc_read_block(r_fdt);
     }
 
     fd_t * fdt = proc_fd(fd);
@@ -78,6 +85,12 @@ int io_pipe_write(int fd, unsigned char * buf, unsigned int len) {
         fdt->pos += len;
     }
 
+    // Wake up readers waiting for a write
+    while (fdt->write_wait != 0) {
+        fdt->write_wait->state = PROC_STATE_RUNNABLE;
+        fdt->write_wait = fdt->write_wait->next;
+    }
+
     return len;
 }
 
@@ -89,12 +102,12 @@ int io_pipe_flush(int fd) {
             // all bytes were read
             return 0;
         }
-        if (r_fdt->mode == 0) {
+        if (r_fdt->refcount == 0) {
             // read side was closed
             return 0;
         }
         
         // block until the read side reads all of it or closes the pipe
-        proc_block();
+        proc_read_block(r_fdt);
     }    
 }

@@ -67,6 +67,8 @@ int io_open(char * path, char mode) {
     fdt->max_pos = pos;
     fdt->mode = mode;
     fdt->refcount = 1;
+    fdt->read_wait = 0;
+    fdt->write_wait = 0;
 
     int device_type;
     switch (fs_is_device(fdt->inode, &device_type)) {
@@ -188,6 +190,8 @@ int io_pipe(int * writefd, int * readfd) {
     w_fdt->vfile = &vfile_pipe;
     w_fdt->buffer = kmalloc();
     w_fdt->pipe_fdt = r_fdt;
+    w_fdt->read_wait = 0;
+    w_fdt->write_wait = 0;
 
     r_fdt->inode = -1;
     r_fdt->cur_block = -1;
@@ -198,6 +202,8 @@ int io_pipe(int * writefd, int * readfd) {
     r_fdt->vfile = &vfile_pipe;
     r_fdt->buffer = w_fdt->buffer;
     r_fdt->pipe_fdt = w_fdt;
+    r_fdt->read_wait = 0;
+    r_fdt->write_wait = 0;
 
     *writefd = w_fd;
     *readfd = r_fd;

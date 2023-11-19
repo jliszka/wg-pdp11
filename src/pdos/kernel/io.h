@@ -10,17 +10,7 @@ typedef struct {
     int (*fsync)(int);
 } vfile_t;
 
-typedef struct fd_t {
-    int inode;
-    int cur_block;
-    int pos;
-    int max_pos;
-    char mode;
-    char refcount;
-    struct fd_t * pipe_fdt;
-    vfile_t * vfile;
-    unsigned char * buffer;
-} fd_t;
+#include "proc.h"
 
 int io_reset();
 int io_open(char * path, char mode);

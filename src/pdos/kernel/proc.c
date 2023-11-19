@@ -12,32 +12,12 @@
 #define ARGV_BUFSIZE 64
 #define MAX_PROCS 16
 #define MAX_FDS 16
-#define MAX_PROC_FDS 8
-
-#define STATE_RUNNABLE 1
-#define STATE_WAIT 2
-#define STATE_EXITED 3
-#define STATE_IO_BLOCKED 4
 
 #define SIG_KILL 9
 
 extern int userexec(unsigned int sp);
 extern int kret(unsigned int ksp, unsigned int kernel_stack_page, unsigned int * kspp);
 extern unsigned int pwd;
-
-typedef struct {
-    unsigned char code_page;
-    unsigned char stack_page;
-    unsigned char kernel_stack_page;    
-    unsigned int ksp;
-    int exit_code;
-    int state;
-    int ppid;
-    int cwd;
-    int signal;
-    int flags;
-    fd_t * fds[MAX_PROC_FDS];
-} pcb_t;
 
 static pcb_t ptable[MAX_PROCS];
 static fd_t fd_table[MAX_FDS];
@@ -170,7 +150,7 @@ int proc_create() {
     pt->exit_code = 0;
     pt->signal = 0;
     pt->flags = PROC_FLAG_HAS_TTY_IN | PROC_FLAG_HAS_TTY_OUT;
-    pt->state = STATE_RUNNABLE;
+    pt->state = PROC_STATE_RUNNABLE;
     pt->ppid = -1;
     pt->cwd = ROOT_DIR_INODE;
 
@@ -247,13 +227,13 @@ int _proc_cleanup(int pid, int exit_code) {
         // Program has exited and has no parent.
         pt->state = 0;
     } else {
-        pt->state = STATE_EXITED;
+        pt->state = PROC_STATE_EXITED;
         pt->exit_code = exit_code;
         // If the parent was waiting for us to exit,
         // make the parent runnable.
         pcb_t * ppt = &ptable[pt->ppid];
-        if (ppt->state == STATE_WAIT) {
-            ppt->state = STATE_RUNNABLE;
+        if (ppt->state == PROC_STATE_WAIT) {
+            ppt->state = PROC_STATE_RUNNABLE;
         }
     }
 }
@@ -310,7 +290,7 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     pt->exit_code = 0;
     pt->signal = 0;
     pt->flags = ppt->flags;
-    pt->state = STATE_RUNNABLE;
+    pt->state = PROC_STATE_RUNNABLE;
     pt->ppid = cur_pid;
     pt->cwd = ppt->cwd;
 
@@ -373,7 +353,7 @@ int _proc_select() {
     for (int i = 1; i <= MAX_PROCS; i++) {
         int pid = (cur_pid + i) % MAX_PROCS;
         int state = ptable[pid].state;
-        if (state == STATE_RUNNABLE) {
+        if (state == PROC_STATE_RUNNABLE) {
             return pid;
         }
     }
@@ -383,8 +363,8 @@ int _proc_select() {
     // If none found, see if any of the IO blocked procs are ready to wake up
     for (int i = 1; i <= MAX_PROCS; i++) {
         int pid = (cur_pid + i) % MAX_PROCS;
-        if (ptable[pid].state == STATE_IO_BLOCKED) {
-            ptable[pid].state = STATE_RUNNABLE;
+        if (ptable[pid].state == PROC_STATE_IO_BLOCKED) {
+            ptable[pid].state = PROC_STATE_RUNNABLE;
             return pid;
         }
     }
@@ -432,12 +412,24 @@ int proc_switch() {
 }
 
 int proc_block() {
-    ptable[cur_pid].state = STATE_IO_BLOCKED;
+    ptable[cur_pid].state = PROC_STATE_IO_BLOCKED;
     return proc_switch();
 }
 
-void proc_unblock(int pid) {
-    ptable[pid].state = STATE_RUNNABLE;
+int proc_read_block(fd_t * fdt) {
+    pcb_t * pt = &ptable[cur_pid];
+    pt->state = PROC_STATE_BLOCKED;
+    pt->next = fdt->read_wait;
+    fdt->read_wait = pt;
+    return proc_switch();
+}
+
+int proc_write_block(fd_t * fdt) {
+    pcb_t * pt = &ptable[cur_pid];
+    pt->state = PROC_STATE_BLOCKED;
+    pt->next = fdt->write_wait;
+    fdt->write_wait = pt;
+    return proc_switch();
 }
 
 int proc_wait(int pid) {
@@ -447,8 +439,8 @@ int proc_wait(int pid) {
         return -1; // TODO: better error code
     }
 
-    while (pt->state != STATE_EXITED) {
-        ppt->state = STATE_WAIT;
+    while (pt->state != PROC_STATE_EXITED) {
+        ppt->state = PROC_STATE_WAIT;
         proc_switch();
     }
 
