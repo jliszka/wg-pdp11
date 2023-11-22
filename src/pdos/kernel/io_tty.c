@@ -9,7 +9,9 @@ int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
     }
 
     char ch;
-    int bytes_read = tty_read(0, len-2, buf, &ch);
+    fd_t * fdt = proc_fd(fd);
+    int tty = fdt->cur_block; // a hack; this is the tty number
+    int bytes_read = tty_read(tty, len-2, buf, &ch);
 
     if (ch == CTRL_D) {
         // Set a flag indicating EOF
@@ -23,10 +25,14 @@ int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
 }
 
 int io_tty_write(int fd, unsigned char * buf, unsigned int len) {
-    return tty_write(0, len, buf);
+    fd_t * fdt = proc_fd(fd);
+    int tty = fdt->cur_block;
+    return tty_write(tty, len, buf);
 }
 
 int io_tty_flush(int fd) {
-    tty_flush(0);
+    fd_t * fdt = proc_fd(fd);
+    int tty = fdt->cur_block; // a hack; this is the tty number
+    tty_flush(tty);
     return 0;
 }

@@ -156,11 +156,7 @@ int proc_create() {
 
     cur_pid = i;
 
-    // Initialize stdin and stdout
-    io_open("/dev/tty", 'r');
-    io_open("/dev/tty", 'w');
-
-    return i;
+    return cur_pid;
 }
 
 int _proc_load(char * path, int code_page) {
@@ -365,7 +361,6 @@ int _proc_select() {
         int pid = (cur_pid + i) % MAX_PROCS;
         if (ptable[pid].state == PROC_STATE_IO_BLOCKED) {
             ptable[pid].state = PROC_STATE_RUNNABLE;
-            return pid;
         }
     }
 

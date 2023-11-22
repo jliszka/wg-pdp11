@@ -43,7 +43,7 @@ lib:
 
 ##########################################################
 
-BINS=ar.bin cat.bin cp.bin ed.bin halt.bin head.bin hexdump.bin ln.bin load.bin ls.bin mbr.bin mkdir.bin mv.bin rm.bin rmdir.bin touch.bin sh.bin more.bin
+BINS=ar.bin cat.bin cp.bin ed.bin halt.bin head.bin hexdump.bin ln.bin load.bin ls.bin mbr.bin mkdir.bin mv.bin rm.bin rmdir.bin touch.bin sh.bin more.bin init.bin getty.bin
 
 bin.a: $(BINS)
 

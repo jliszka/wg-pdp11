@@ -4,8 +4,12 @@
 #define KBV 060            // keyboard (TTI) interrupt vector
 #define KBS 0177560        // keyboard status register
 #define KBD 0177562        // keyboard data buffer
-#define KB_READY (1 << 7)  // keyboard ready bit
+#define KB_READY (1 << 7)  // keyboard ready flag
+#define KB_RING (1 << 14)  // terminal ring flag
 #define KB_ENABLE (1 << 6) // keyboard interrupt enable bit
+#define KB_RING_INT (1 << 5) // keyboard ring interrupt enable bit
+
+#define DL 0176500         // remote terminal status and data
 
 #define TTV 064            // terminal (TTO) interrupt vector
 #define TTS 0177564        // terminal status register
@@ -38,17 +42,34 @@ typedef struct {
 #define MAX_TTY 4
 tty_t ttys[MAX_TTY];
 
-#define kb_enable() \
-    *((volatile unsigned int *)KBS) |= KB_ENABLE;
+typedef struct {
+    int rx_status;
+    int rx_buffer;
+    int tx_status;
+    int tx_buffer;
+} tty_device_t;
 
-#define kb_disable() \
-    *((volatile unsigned int *)KBS) &= ~KB_ENABLE;
+#define tty_devices ((tty_device_t *)DL)
 
-#define tt_enable() \
-    *((volatile unsigned int *)TTS) |= TT_ENABLE;
+void kb_enable(int tty) {
+    if (tty == 0) *((volatile unsigned int *)KBS) |= KB_ENABLE;
+    else tty_devices[tty-1].rx_status |= KB_ENABLE | KB_RING_INT;
+}
 
-#define tt_disable() \
-    *((volatile unsigned int *)TTS) &= ~TT_ENABLE;
+void kb_disable(int tty) {
+    if (tty == 0) *((volatile unsigned int *)KBS) &= ~KB_ENABLE;
+    else tty_devices[tty-1].rx_status &= ~(KB_ENABLE | KB_RING_INT);
+}
+
+void tt_enable(int tty) {
+    if (tty == 0) *((volatile unsigned int *)TTS) |= TT_ENABLE;
+    else tty_devices[tty-1].tx_status |= TT_ENABLE;
+}
+
+void tt_disable(int tty) {
+    if (tty == 0) *((volatile unsigned int *)TTS) &= ~TT_ENABLE;
+    else tty_devices[tty-1].tx_status &= ~TT_ENABLE;
+}
 
 void tty_init() {
     for (int i = 0; i < MAX_TTY; i++) {
@@ -59,11 +80,12 @@ void tty_init() {
         ttys[i].send_allowance = MAX_ALLOWANCE;
     }
 
-    tt_disable();
-    kb_disable();
+    tt_disable(0);
+    kb_disable(0);
 
     isrinit();
-    kb_enable();
+    kb_enable(0);
+    kb_enable(1);
 }
 
 int tty_write(int tty, int nbytes, char *str) {
@@ -124,9 +146,15 @@ unsigned char tty_getch(int tty) {
 
 void tty_flush(int tty) {
     tty_t *ptty = &ttys[tty];
+
+    while (tty > 0 && !(tty_devices[tty-1].rx_status & KB_RING)) {
+        // No one's listening; block
+        proc_block();
+    }
+
     if (ptty->outptr != ptty->outend) {
-        tt_disable();
-        tt_enable();
+        tt_disable(tty);
+        tt_enable(tty);
         while (ptty->outptr != ptty->outend) {
             asm("wait");
         }
@@ -135,8 +163,18 @@ void tty_flush(int tty) {
 
 // Keyboard interrupt handler, called from isr.s
 void kb_handler(int tty) {
-    volatile unsigned char *rbuf = (unsigned char *)KBD;
-    register char c = *rbuf;
+    unsigned char c;
+    if (tty == 0) {
+        c = *(char *)KBD;
+    } else {
+        c = (unsigned char)tty_devices[tty-1].rx_buffer;
+        if ((tty_devices[tty-1].rx_status & KB_RING) && (c == 0)) {
+            // Ring!
+            tt_enable(tty);
+            return;
+        }
+    }
+
     tty_t *ptty = &ttys[tty];
 
     if (c == DEL || c == '\b') {
@@ -161,16 +199,21 @@ void kb_handler(int tty) {
         ptty->outbuf[ptty->outend++ % BUFSIZE] = c;
         ptty->inbuf[ptty->inend++] = c;
     }
-    tt_enable();
+    tt_enable(tty);
 }
 
 // Terminal interrupt handler, called from isr.s
 void tt_handler(int tty) {
-    volatile unsigned char *xbuf = (unsigned char *)TTD;
+    unsigned char *xbuf;
+    if (tty == 0) {
+        xbuf = (unsigned char *)TTD;
+    } else {
+        xbuf = (unsigned char *)(&(tty_devices[tty-1].tx_buffer));
+    }
     tty_t *ptty = &ttys[tty];
 
     if (ptty->outptr == ptty->outend || ptty->send_allowance <= 0) {
-        tt_disable();
+        tt_disable(tty);
     } else {
         *xbuf = ptty->outbuf[ptty->outptr++ % BUFSIZE];
         if (tty == 0) {
