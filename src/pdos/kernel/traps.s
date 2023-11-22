@@ -125,8 +125,6 @@ trap.exec:
     mfpi 6(r5)          # argv
     pop r2
 
-    mov r4, r5          # save original argc
-
     mov $buf, r3        # argv dest
     mov r4, r0          # arg dest = argc * 2 + buf
     asl r0
@@ -143,9 +141,8 @@ trap.exec:
     sob r4, 1$
 
     push $buf
-    push r5             # argc
+    mfpi 4(r5)          # argc
     jsr pc, _proc_exec
-
     add $4, sp
 
     jmp ret
@@ -198,7 +195,6 @@ trap.lseek:
 #     - return address for call to syscall stub
 # r5 -> old r5
 trap.read:
-    push r5
     mfpi 8(r5)          # number of bytes to read
     pop r0
     tst r0              # nothing to read? return
@@ -212,13 +208,11 @@ trap.read:
     push r0             # number of bytes to read
     push $buf           # destination buffer
     mfpi 4(r5)          # file descriptor
-    jsr pc, _io_read   # return value (r0): how many bytes read
+    jsr pc, _io_read    # return value (r0): how many bytes read
     add $6, sp
 
     tst r0              # error from io_fread, return
     blt 3$
-
-    pop r5
 
     push r0             # save original value of r0
     beq 2$              # no bytes read, return

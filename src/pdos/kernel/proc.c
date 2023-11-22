@@ -71,6 +71,20 @@ int proc_fd_alloc(fd_t ** fdt_out) {
     return fd;
 }
 
+void proc_wake_read_waiters(fd_t * fdt) {
+    while (fdt->read_wait != 0) {
+        fdt->read_wait->state = PROC_STATE_RUNNABLE;
+        fdt->read_wait = fdt->read_wait->next;
+    }
+}
+
+void proc_wake_write_waiters(fd_t * fdt) {
+    while (fdt->write_wait != 0) {
+        fdt->write_wait->state = PROC_STATE_RUNNABLE;
+        fdt->write_wait = fdt->write_wait->next;
+    }
+}
+
 void proc_fd_free(int fd, int pid) {
     if (pid == -1) {
         pid = cur_pid;
@@ -80,6 +94,10 @@ void proc_fd_free(int fd, int pid) {
         // Already freed? Maybe error here.
         return;
     }
+
+    proc_wake_read_waiters(fdt);
+    proc_wake_write_waiters(fdt);
+
     fdt->refcount--;
     if (fdt->refcount == 0) {
         if (fdt->pipe_fdt != 0) {
@@ -169,7 +187,6 @@ int _proc_load(char * path, int code_page) {
         fd = io_open(buf, 'r');
     }
     if (fd < 0) {
-        println("Command not found");
         return fd;
     }
 

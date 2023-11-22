@@ -11,7 +11,7 @@ int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
     char ch;
     fd_t * fdt = proc_fd(fd);
     int tty = fdt->cur_block; // a hack; this is the tty number
-    int bytes_read = tty_read(tty, len-2, buf, &ch);
+    int bytes_read = tty_read(tty, len-1, buf, &ch);
 
     if (ch == CTRL_D) {
         // Set a flag indicating EOF
@@ -19,7 +19,6 @@ int io_tty_read(int fd, unsigned char * buf, unsigned int len) {
     } else {
         buf[bytes_read++] = ch;
     }
-    buf[bytes_read++] = 0;
 
     return bytes_read;
 }

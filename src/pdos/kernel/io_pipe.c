@@ -41,10 +41,7 @@ int io_pipe_read(int fd, unsigned char * buf, unsigned int len) {
     }
 
     // Wake up writers waiting for a read
-    while (fdt->read_wait != 0) {
-        fdt->read_wait->state = PROC_STATE_RUNNABLE;
-        fdt->read_wait = fdt->read_wait->next;
-    }
+    proc_wake_read_waiters(fdt);
 
     return len;
 }
@@ -86,10 +83,7 @@ int io_pipe_write(int fd, unsigned char * buf, unsigned int len) {
     }
 
     // Wake up readers waiting for a write
-    while (fdt->write_wait != 0) {
-        fdt->write_wait->state = PROC_STATE_RUNNABLE;
-        fdt->write_wait = fdt->write_wait->next;
-    }
+    proc_wake_write_waiters(fdt);
 
     return len;
 }

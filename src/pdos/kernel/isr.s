@@ -30,6 +30,8 @@ ttisr\n:
 
     isr 0
     isr 1
+    isr 2
+    isr 3
 
 
 .globl _isrinit

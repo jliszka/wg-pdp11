@@ -162,7 +162,7 @@ int main() {
                 }
                 ret = exec(cmd->argc, cmd->argv);
                 printf("exec failed: %d\r\n", ret);
-                break;
+                return ret;
             }
 
             // parent
@@ -178,7 +178,7 @@ int main() {
             prev_pipe_rfd = cur_pipe_rfd;
         }
 
-        if (ret != 0) {
+        if (ret < 0) {
             for (int i = 0; i < ncmds; i++) {
                 cmd_t * cmd = &cmds[i];
                 if (cmd->pid > 0) {

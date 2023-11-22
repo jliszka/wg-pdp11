@@ -63,5 +63,7 @@ void proc_unblock(int pid);
 int proc_get_flag(int flag);
 void proc_set_flag(int flag);
 void proc_clear_flag(int flag);
+void proc_wake_read_waiters(fd_t * fdt);
+void proc_wake_write_waiters(fd_t * fdt);
 
 #endif

@@ -24,5 +24,10 @@ void fprintln(int fd, char * str) {
 }
 
 int input(int len, char * buf) {
-	return read(STDIN, buf, len);
+	int ret = read(STDIN, buf, len-1);
+    if (ret < 0) {
+        return ret;
+    }
+    buf[ret] = 0;
+    return ret;
 }
