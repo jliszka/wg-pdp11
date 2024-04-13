@@ -76,9 +76,7 @@ int io_open(char * path, char mode) {
         fdt->vfile = &vfile_devs[device_type];
         fdt->buffer = 0;
         if (device_type == VFILE_DEV_TTY) {
-            int name_len = strlen(path_info.filename);
-            char last = path_info.filename[name_len-1];
-            fdt->cur_block = last - '0';
+            fdt->cur_block = proc_get_tty(path_info.filename);
         }
         break;
     case INODE_FLAG_BLOCK_DEVICE:

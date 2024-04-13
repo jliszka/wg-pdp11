@@ -25,6 +25,7 @@ typedef struct pcb_t {
     int cwd;
     int signal;
     int flags;
+    int tty;
     struct fd_t * fds[MAX_PROC_FDS];
     struct pcb_t * next;
 } pcb_t;
@@ -65,5 +66,6 @@ void proc_set_flag(int flag);
 void proc_clear_flag(int flag);
 void proc_wake_read_waiters(fd_t * fdt);
 void proc_wake_write_waiters(fd_t * fdt);
+int proc_get_tty(char * filename);
 
 #endif

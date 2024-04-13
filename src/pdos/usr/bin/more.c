@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <sys.h>
+#include <buffer.h>
 
 int main(int argc, char ** argv) {
 
@@ -28,12 +29,15 @@ int main(int argc, char ** argv) {
         return stdin;
     }
 
-    char buf[256];
-    buf[255] = 0;
-    int pos = 0;
+    char inbuf[256];
     int line = 0;
+
+    char buffer[256];
+    buf_t buf;
+    buffer_init(&buf, STDOUT, buffer, 256);
+
     while (1) {
-        int ret = read(fd, buf, 255);
+        int ret = read(fd, inbuf, 255);
         if (ret == 0) {
             break;
         }
@@ -41,25 +45,25 @@ int main(int argc, char ** argv) {
             return ret;
         }
         for (int i = 0; i < ret; i++) {
-            if (buf[i] == '\n') {
-                line++;
-                char c = buf[i+1];
-                buf[i+1] = 0;
-                print(buf + pos);
-                buf[i+1] = c;
-                pos = i+1;
-            }
-            if (line == lines) {
-                print("-- Press ENTER --");
+            buffer_put(&buf, inbuf[i]);
+            if (inbuf[i] == '\n') {
+                buffer_flush(&buf);
                 fsync(STDOUT);
-                read(stdin, buf, 2);
-                if (strncmp(buf, "q", 2) == 0) {
-                    break;
+                line++;
+                if (line == lines) {
+                    print("-- Press ENTER --");
+                    fsync(STDOUT);
+                    read(stdin, inbuf, 2);
+                    if (strncmp(inbuf, "q", 2) == 0) {
+                        break;
+                    }
+                    line = 0;
                 }
-                line = 0;
             }
         }
     }
+    buffer_flush(&buf);
+    fsync(STDOUT);
 
     return 0;
 }

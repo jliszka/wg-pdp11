@@ -171,6 +171,7 @@ int proc_create() {
     pt->state = PROC_STATE_RUNNABLE;
     pt->ppid = -1;
     pt->cwd = ROOT_DIR_INODE;
+    pt->tty = -1;
 
     cur_pid = i;
 
@@ -233,6 +234,7 @@ int _proc_cleanup(int pid, int exit_code) {
     pt->ksp = 0;
     pt->cwd = 0;
     pt->exit_code = 0;
+    pt->tty = -1;
 
     _proc_free_fds(pt, pid);
 
@@ -306,6 +308,7 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     pt->state = PROC_STATE_RUNNABLE;
     pt->ppid = cur_pid;
     pt->cwd = ppt->cwd;
+    pt->tty = ppt->tty;
 
     // Copy file descriptors
     for (int i = 0; i < MAX_PROC_FDS; i++) {
@@ -488,4 +491,20 @@ int proc_getcwd(char * path, int len) {
 int proc_kill(int pid, int signal) {
     ptable[pid].signal = signal;
     return 0;
+}
+
+int proc_get_tty(char * filename) {
+    pcb_t * pt = &ptable[cur_pid];
+    int name_len = strlen(filename);
+    char last = filename[name_len-1];
+    if ('0' <= last && last <= '8') {
+        int tty = last - '0';
+        if (pt->tty < 0) {
+            // assign controlling tty
+            pt->tty = tty;
+        }
+        return tty;
+    } else {
+        return pt->tty;
+    }
 }
