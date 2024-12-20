@@ -8,6 +8,7 @@
 #include "fs.h"
 #include "errno.h"
 #include "io.h"
+#include "isr.h"
 
 #define ARGV_BUFSIZE 64
 #define MAX_PROCS 16
@@ -319,10 +320,12 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
     }
 
     // Copy user stack from sp to the end of the page
+    int_disable();
     unsigned int src_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
     vm_map_kernel_page(KERNEL_MAPPING_PAGE, ppt->stack_page, VM_RO);
-    unsigned int dst_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE2);
-    vm_map_kernel_page(KERNEL_MAPPING_PAGE2, pt->stack_page, VM_RW);
+    // Reuse the heap page for the copy
+    unsigned int dst_base_address = vm_page_base_address(KERNEL_HEAP_PAGE2);
+    int orig_heap_page = vm_map_kernel_page(KERNEL_HEAP_PAGE, vm_page_block_number(pt->stack_page));
 
     unsigned int vm_base = vm_page_base_address(7);
     bcopy(
@@ -330,8 +333,8 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
           (unsigned char *)(sp - vm_base + src_base_address),
           VM_PAGE_SIZE - (sp - vm_base));
 
-    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
-    vm_unmap_kernel_page(KERNEL_MAPPING_PAGE2);
+    // Restore the heap page
+    vm_map_kernel_page(KERNEL_HEAP_PAGE2, orig_heap_page);
 
     // Copy kernel stack from ksp to the end of the the page
     dst_base_address = vm_page_base_address(KERNEL_MAPPING_PAGE);
@@ -344,6 +347,8 @@ int proc_dup(unsigned int sp, unsigned int ksp) {
           VM_PAGE_SIZE - (ksp - vm_base));
     
     vm_unmap_kernel_page(KERNEL_MAPPING_PAGE);
+
+    int_enable();
 
     return child_pid;
 }

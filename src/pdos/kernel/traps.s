@@ -2,6 +2,40 @@
 
 .include "macros.s"
 
+.data
+.even
+
+# Reading from this table is a data operation, so it belongs in the data segment
+ttable:
+    .word trap.exit     # 0
+    .word trap.halt     # 1
+    .word trap.fork     # 2
+    .word trap.exec     # 3
+    .word trap.fopen    # 4
+    .word trap.fclose   # 5
+    .word trap.fseek    # 6
+    .word trap.fread    # 7
+    .word trap.fwrite   # 8
+    .word trap.fflush   # 9
+    .word trap.link     # 10
+    .word trap.unlink   # 11
+    .word trap.mkdir    # 12
+    .word trap.rmdir    # 13
+    .word trap.stat    # 14
+    .word trap.mkfs     # 15
+    .word trap.wait     # 16
+    .word trap.chdir    # 17
+    .word trap.getcwd   # 18
+    .word trap.pipe     # 19
+    .word trap.dup2     # 20
+    .word trap.rename   # 21
+    .word trap.kill     # 22
+
+.even
+bufsize = 64
+buf:
+.=.+bufsize
+
 .text
 .even
 
@@ -34,36 +68,6 @@ ret:
     pop r2
 
     rti
-
-.even
-bufsize = 64
-buf:
-.=.+bufsize
-
-ttable:
-    .word trap.exit     # 0
-    .word trap.halt     # 1
-    .word trap.fork     # 2
-    .word trap.exec     # 3
-    .word trap.open     # 4
-    .word trap.close    # 5
-    .word trap.lseek    # 6
-    .word trap.read     # 7
-    .word trap.write    # 8
-    .word trap.fsync    # 9
-    .word trap.link     # 10
-    .word trap.unlink   # 11
-    .word trap.mkdir    # 12
-    .word trap.rmdir    # 13
-    .word trap.stat     # 14
-    .word trap.mkfs     # 15
-    .word trap.wait     # 16
-    .word trap.chdir    # 17
-    .word trap.getcwd   # 18
-    .word trap.pipe     # 19
-    .word trap.dup2     # 20
-    .word trap.rename   # 21
-    .word trap.kill     # 22
 
 # r5 points to user-space stack:
 #     - exit code

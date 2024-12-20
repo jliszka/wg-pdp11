@@ -14,6 +14,15 @@ rttv = 0304
 .globl _tt_handler
 .globl ktrap
 
+.globl _int_enable
+_int_enable:
+    spl 0
+    rts pc
+
+.globl _int_disable
+_int_disable:
+    spl 7
+    rts pc
 
 .macro isr n
 kbisr\n:
@@ -32,7 +41,6 @@ ttisr\n:
     isr 1
     isr 2
     isr 3
-
 
 .globl _isrinit
 _isrinit:                   # this is called from libasio.c as isrinit()

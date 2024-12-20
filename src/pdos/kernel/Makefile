@@ -25,14 +25,18 @@ AOUT2LDA=aout2lda.py
 
 # Compile and link a c file into a.out format
 %.aout:
-	$(GCC) $(GCCOPTS) -Ttext 0x400 -e _start -g -o $@ $^
+	$(GCC) $(GCCOPTS) -T linker.ld -Xlinker --no-check-sections -e _start -g -o $@ $^
 
 # Convert from a.out format into the tape loader format
+# Set data segment start address to page 5 (page size is 8kb = 0x2000)
 %.bin: %.aout
-	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x400
+	$(AOUT2LDA) --aout $< --lda $@ --data-align 2 --text 0x400 --data 0xa000
 
 %.dasm: %.aout
 	$(OBJDUMP) --adjust-vma=0x400 -d $< > $@
+
+%.data: %.aout
+	$(OBJDUMP) -j .data -t -s $< > $@
 
 ##########################################################
 
@@ -50,4 +54,4 @@ install:
 	cp *.bin /opt/pidp11/systems/pdos/
 
 clean:
-	rm -f *.o *.obj *.bin *.lst *.aout
+	rm -f *.o *.obj *.bin *.lst *.aout *.dasm *.data

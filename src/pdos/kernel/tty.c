@@ -1,5 +1,6 @@
 #include "tty.h"
 #include "proc.h"
+#include "isr.h"
 
 #define KBV 060            // keyboard (TTI) interrupt vector
 #define KBS 0177560        // keyboard status register
@@ -20,9 +21,6 @@
 #define DEL 0177
 #define ESC 033
 #define CONT 024
-
-// This lives in isr.s
-extern void isrinit();
 
 #define BUFSIZE 64
 #define MAX_ALLOWANCE 32
@@ -90,11 +88,11 @@ void tty_init() {
 
 int tty_write(int tty, int nbytes, char *str) {
     tty_t *ptty = &ttys[tty];
-    asm("spl 7");
+    int_disable();
     if (ptty->outend + nbytes > ptty->outptr + BUFSIZE) {
         nbytes = ptty->outptr + BUFSIZE - ptty->outend;
     }
-    asm("spl 0");
+    int_enable();
     if (nbytes == 0) {
         tty_flush(tty);
         return 0;

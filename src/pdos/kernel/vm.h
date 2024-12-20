@@ -1,9 +1,9 @@
 #ifndef VM_H
 #define VM_H
 
-#define KERNEL_HEAP_PAGE 3u
+#define KERNEL_HEAP_PAGE 2u
+#define KERNEL_HEAP_PAGE2 3u
 #define KERNEL_MAPPING_PAGE 4u
-#define KERNEL_MAPPING_PAGE2 5u
 #define KERNEL_STACK_PAGE 6u
 
 #define VM_RO 077404
@@ -21,11 +21,20 @@ typedef struct {
     unsigned int hi;
 } unibus_map_t;
 
+// Page 0: 0x0
+// Page 1: 0x2000 020000
+// Page 2: 0x4000 040000
+// Page 3: 0x6000 060000
+// Page 4: 0x8000 100000
+// Page 5: 0xa000 120000
+// Page 6: 0xc000 140000
+// Page 7: 0xe000 160000
+
 void vm_init();
 int vm_allocate_page();
 int vm_use_page(int page);
 void vm_free_page(int page);
-void vm_map_kernel_page(int page, unsigned int physical_block_number, int flags);
+int vm_map_kernel_page(int page, unsigned int physical_block_number, int flags);
 unsigned int vm_get_kernel_stack_page();
 void vm_unmap_kernel_page(int page);
 void vm_user_init(unsigned int code_page, unsigned int stack_page);

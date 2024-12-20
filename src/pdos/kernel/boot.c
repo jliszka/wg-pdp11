@@ -8,8 +8,11 @@ extern void cmd();
 
 int main()
 {
-    tty_init();
+    // Initialize VM first so that we can correctly access
+    // global variables that live in the data segment
     vm_init();
+
+    tty_init();
     fs_init();
     proc_init();
 
